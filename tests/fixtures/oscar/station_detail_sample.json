@@ -1,0 +1,38 @@
+{
+  "wigosStationIdentifier": "0-20000-0-72053",
+  "wmoIndexNumber": "72053",
+  "name": "NEW YORK CITY CENTRAL PARK",
+  "latitude": 40.779,
+  "longitude": -73.969,
+  "elevation": 47.5,
+  "territory": {
+    "countryCode": "US",
+    "name": "United States of America",
+    "isoCode": "USA"
+  },
+  "region": "North America",
+  "stationClass": "synoptic",
+  "facilityType": "Land fixed",
+  "supervisionOrganization": {
+    "name": "National Weather Service",
+    "acronym": "NWS",
+    "country": "United States of America"
+  },
+  "stationStatus": "operational",
+  "dateEstablished": "1869-01-01",
+  "programAffiliations": ["GOS", "GCOS", "RBCN"],
+  "observingCapabilities": [
+    {
+      "name": "Air temperature",
+      "unit": "K"
+    },
+    {
+      "name": "Relative humidity",
+      "unit": "%"
+    },
+    {
+      "name": "Wind speed",
+      "unit": "m/s"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+[
+  {
+    "wigosStationIdentifier": "0-20000-0-72053",
+    "name": "NEW YORK CITY CENTRAL PARK",
+    "latitude": 40.779,
+    "longitude": -73.969,
+    "elevation": 47.5,
+    "territory": {
+      "countryCode": "US",
+      "name": "United States of America"
+    },
+    "region": "North America",
+    "stationClass": "synoptic",
+    "facilityType": "Land fixed",
+    "supervisionOrganization": {
+      "name": "National Weather Service",
+      "acronym": "NWS"
+    },
+    "stationStatus": "operational"
+  },
+  {
+    "wigosStationIdentifier": "0-20000-0-72503",
+    "name": "JOHN F KENNEDY INTL AIRPORT",
+    "latitude": 40.639,
+    "longitude": -73.762,
+    "elevation": 3.9,
+    "territory": {
+      "countryCode": "US",
+      "name": "United States of America"
+    },
+    "region": "North America",
+    "stationClass": "synoptic",
+    "facilityType": "Land fixed",
+    "supervisionOrganization": {
+      "name": "National Weather Service",
+      "acronym": "NWS"
+    },
+    "stationStatus": "operational"
+  },
+  {
+    "wigosStationIdentifier": "0-20000-0-07156",
+    "name": "PARIS ORLY",
+    "latitude": 48.727,
+    "longitude": 2.400,
+    "elevation": 89.0,
+    "territory": {
+      "countryCode": "FR",
+      "name": "France"
+    },
+    "region": "Europe",
+    "stationClass": "synoptic",
+    "facilityType": "Land fixed",
+    "supervisionOrganization": {
+      "name": "Météo-France"
+    },
+    "stationStatus": "operational"
+  },
+  {
+    "wigosStationIdentifier": "0-20000-0-89009",
+    "name": "AMUNDSEN-SCOTT",
+    "latitude": -90.0,
+    "longitude": 0.0,
+    "elevation": 2835.0,
+    "territory": {
+      "countryCode": "AQ",
+      "name": "Antarctica"
+    },
+    "region": "Antarctica",
+    "stationClass": "climatological",
+    "facilityType": "Land fixed",
+    "supervisionOrganization": {
+      "name": "National Science Foundation",
+      "acronym": "NSF"
+    },
+    "stationStatus": "operational"
+  },
+  {
+    "wigosStationIdentifier": "0-20000-0-62001",
+    "name": "BUOY 62001",
+    "latitude": 45.2,
+    "longitude": -15.8,
+    "elevation": 0,
+    "territory": {
+      "countryCode": null,
+      "name": "International Waters"
+    },
+    "region": "Atlantic Ocean",
+    "stationClass": "oceanographic",
+    "facilityType": "Sea fixed",
+    "supervisionOrganization": {
+      "name": "European Organization for the Exploitation of Meteorological Satellites",
+      "acronym": "EUMETSAT"
+    },
+    "stationStatus": "operational"
+  }
+]

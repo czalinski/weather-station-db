@@ -1,0 +1,11 @@
+#
+# Station ownership and samples of parameters collected.
+# This list is updated each time a change is made to station information
+#
+# Station | Owner | Type | Met | Buoy | Hull | Sea Temp
+#
+46025|NDBC|MET|Y|3M|ARES|Y
+46026|NDBC|MET|Y|3M|ARES|Y
+46027|NDBC|MET|Y|3M|ARES|Y
+46028|NDBC|MET|Y|3M|ARES|Y
+TPLM2|NOS|MET|Y|N/A|N/A|Y

@@ -1,0 +1,32 @@
+{
+  "stationSearchResults": [
+    {
+      "wigosStationIdentifier": "0-20000-0-72053",
+      "name": "NEW YORK CITY CENTRAL PARK",
+      "latitude": 40.779,
+      "longitude": -73.969,
+      "elevation": 47.5,
+      "territory": {
+        "countryCode": "US",
+        "name": "United States of America"
+      },
+      "stationClass": "synoptic",
+      "facilityType": "Land fixed",
+      "stationStatus": "operational"
+    },
+    {
+      "wigosStationIdentifier": "0-20000-0-72503",
+      "name": "JOHN F KENNEDY INTL AIRPORT",
+      "latitude": 40.639,
+      "longitude": -73.762,
+      "elevation": 3.9,
+      "territory": {
+        "countryCode": "US",
+        "name": "United States of America"
+      },
+      "stationClass": "synoptic",
+      "facilityType": "Land fixed",
+      "stationStatus": "operational"
+    }
+  ]
+}

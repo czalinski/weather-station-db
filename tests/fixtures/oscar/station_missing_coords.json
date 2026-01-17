@@ -1,0 +1,13 @@
+{
+  "wigosStationIdentifier": "0-99999-0-00000",
+  "name": "INVALID STATION",
+  "latitude": null,
+  "longitude": null,
+  "elevation": null,
+  "territory": {
+    "countryCode": null,
+    "name": null
+  },
+  "stationClass": null,
+  "stationStatus": "closed"
+}
