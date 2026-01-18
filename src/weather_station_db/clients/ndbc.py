@@ -317,7 +317,7 @@ class NDBCClient:
 
         observations: list[Observation] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning("Error fetching station %s: %s", station_ids[i], result)
             elif result is not None:
                 observations.append(result)
@@ -331,7 +331,7 @@ class NDBCClient:
 
         metadata_list: list[StationMetadata] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning("Error fetching metadata for %s: %s", station_ids[i], result)
             elif result is not None:
                 metadata_list.append(result)

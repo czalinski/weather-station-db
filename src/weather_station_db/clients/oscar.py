@@ -204,11 +204,14 @@ class OSCARClient:
         stations: list[OSCARStation] = []
 
         # Handle different response formats
+        items: list[Any]
         if isinstance(data, list):
             items = data
         elif isinstance(data, dict):
-            items = data.get("stations", data.get("stationSearchResults", []))
-            if not isinstance(items, list):
+            result = data.get("stations") or data.get("stationSearchResults") or []
+            if isinstance(result, list):
+                items = result
+            else:
                 items = [data]
         else:
             return []

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from ..clients.oscar import OSCARClient
+from ..clients.oscar import OSCARClient, OSCARStation
 from ..config import KafkaConfig, OSCARConfig
 from .base import BaseProducer, KafkaProducerProtocol
 
@@ -37,7 +37,7 @@ class OSCARProducer(BaseProducer):
             self._client = OSCARClient(self.oscar_config)
         return self._client
 
-    async def _get_stations_to_process(self) -> list:
+    async def _get_stations_to_process(self) -> list[OSCARStation]:
         """Get list of stations to process based on configuration."""
         territories = self.oscar_config.get_territories_list()
         station_classes = self.oscar_config.get_station_classes_list()

@@ -64,6 +64,13 @@ All Python code must pass the following checks before each commit:
 - Run `pylint src/` to check source code
 - Configuration is in pyproject.toml
 
+### Type Checking (mypy)
+- All code must be fully typed with **strict** mypy checking
+- Run `mypy src/` to check type annotations
+- All function parameters and return types must be annotated
+- Use `typing` module for complex types (Protocol, Callable, etc.)
+- Configuration is in pyproject.toml with `strict = true`
+
 ### Pre-commit Hooks
 Pre-commit hooks are configured to automatically enforce code quality on every commit.
 
@@ -76,6 +83,7 @@ pre-commit install
 **What the hooks check:**
 - Black formatting (auto-fixes on commit)
 - Pylint errors (blocks commit if errors found)
+- Mypy strict type checking (blocks commit if type errors found)
 - Trailing whitespace and EOF fixes
 - YAML validation
 - Large file detection
@@ -89,6 +97,7 @@ pre-commit run --all-files
 # Run specific checks
 black .
 pylint src/ --errors-only
+mypy src/
 pytest tests/unit
 ```
 

@@ -5,7 +5,8 @@ import asyncio
 import logging
 import signal
 import sys
-from typing import NoReturn
+from types import FrameType
+from typing import Any, NoReturn
 
 from .config import Settings, get_settings
 from .producers import ISDProducer, NDBCProducer, OSCARProducer
@@ -30,7 +31,7 @@ def setup_logging(level: str = "INFO") -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
-def handle_shutdown(signum: int, frame: object) -> None:
+def handle_shutdown(signum: int, frame: FrameType | None) -> None:
     """Handle shutdown signals gracefully."""
     sig_name = signal.Signals(signum).name
     logger.info("Received %s, initiating shutdown...", sig_name)
@@ -113,7 +114,7 @@ async def run_all_producers(
     # Set up signal handlers
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, lambda s=sig: handle_shutdown(s, None))
+        loop.add_signal_handler(sig, lambda s: handle_shutdown(s, None), sig)
 
     # Determine which producers to run
     if producers is None:
@@ -132,7 +133,7 @@ async def run_all_producers(
     logger.info("Starting producers: %s", ", ".join(producers))
 
     # Create producer instances
-    tasks: list[asyncio.Task] = []
+    tasks: list[asyncio.Task[None]] = []
 
     if "ndbc" in producers:
         ndbc_producer = NDBCProducer()

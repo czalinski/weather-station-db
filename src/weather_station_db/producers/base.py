@@ -2,14 +2,17 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Protocol
+from typing import Any, Callable, Protocol
 
-from confluent_kafka import Producer
+from confluent_kafka import KafkaError, Message, Producer
 
 from ..config import KafkaConfig
 from ..schemas import Observation, StationMetadata
 
 logger = logging.getLogger(__name__)
+
+# Type alias for delivery callback
+DeliveryCallback = Callable[[KafkaError | None, Message], None]
 
 
 class KafkaProducerProtocol(Protocol):
@@ -20,7 +23,7 @@ class KafkaProducerProtocol(Protocol):
         topic: str,
         key: str | bytes | None = None,
         value: str | bytes | None = None,
-        callback: object = None,
+        callback: DeliveryCallback | None = None,
     ) -> None: ...
 
     def flush(self, timeout: float = -1) -> int: ...
@@ -37,20 +40,23 @@ class BaseProducer(ABC):
         producer: KafkaProducerProtocol | None = None,
     ) -> None:
         self.kafka_config = kafka_config
-        self._producer = producer
+        self._producer: KafkaProducerProtocol | None = producer
 
     @property
     def producer(self) -> KafkaProducerProtocol:
         """Lazy-initialize Kafka producer."""
         if self._producer is None:
-            self._producer = Producer(
+            # Producer from confluent_kafka implements our protocol
+            self._producer = Producer(  # type: ignore[assignment]
                 {
                     "bootstrap.servers": self.kafka_config.bootstrap_servers,
                 }
             )
+        # At this point, _producer is guaranteed to be non-None
+        assert self._producer is not None
         return self._producer
 
-    def _delivery_callback(self, err: object, msg: object) -> None:
+    def _delivery_callback(self, err: KafkaError | None, msg: Message) -> None:
         """Callback for Kafka delivery reports."""
         if err is not None:
             logger.error("Message delivery failed: %s", err)
@@ -88,5 +94,5 @@ class BaseProducer(ABC):
         """Fetch data and publish to Kafka once."""
 
     @abstractmethod
-    async def run_forever(self) -> None:
-        """Run polling loop indefinitely."""
+    async def close(self) -> None:
+        """Clean up resources."""

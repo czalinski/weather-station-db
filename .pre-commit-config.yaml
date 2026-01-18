@@ -23,6 +23,20 @@ repos:
           - --disable=import-error
         files: ^src/
 
+  # Mypy - Static type checker
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (strict type checking)
+        entry: mypy src/
+        language: system
+        types: [python]
+        args:
+          - --strict
+          - --ignore-missing-imports
+        files: ^src/
+        pass_filenames: false
+
   # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

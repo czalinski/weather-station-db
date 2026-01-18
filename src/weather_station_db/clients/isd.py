@@ -433,10 +433,11 @@ class ISDClient:
 
         try:
             # Direction
-            direction: int | None = int(parts[0])
+            direction_raw = int(parts[0])
             dir_quality = parts[1].strip()
-            if direction >= MISSING_WIND_DIR or dir_quality not in VALID_QUALITY_FLAGS:
-                direction = None
+            direction: int | None = None
+            if direction_raw < MISSING_WIND_DIR and dir_quality in VALID_QUALITY_FLAGS:
+                direction = direction_raw
 
             # Speed
             speed_scaled = int(parts[3])
@@ -530,7 +531,7 @@ class ISDClient:
 
         all_observations: list[Observation] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning(
                     "Error fetching station %s: %s",
                     stations[i].station_id,
