@@ -81,9 +81,7 @@ class TestNDBCProducerInit:
         assert producer.kafka_config is not None
         assert producer.ndbc_config is not None
 
-    def test_init_with_custom_configs(
-        self, kafka_config: KafkaConfig, ndbc_config: NDBCConfig
-    ):
+    def test_init_with_custom_configs(self, kafka_config: KafkaConfig, ndbc_config: NDBCConfig):
         """Test producer initializes with custom configs."""
         producer = NDBCProducer(
             kafka_config=kafka_config,
@@ -164,9 +162,7 @@ class TestNDBCProducerRunOnce:
         ndbc_config = NDBCConfig(station_ids="46025,46026")
 
         mock_client = AsyncMock()
-        mock_client.get_observations_batch = AsyncMock(
-            return_value=[sample_observation]
-        )
+        mock_client.get_observations_batch = AsyncMock(return_value=[sample_observation])
         mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata])
 
         producer = NDBCProducer(
@@ -198,12 +194,8 @@ class TestNDBCProducerRunOnce:
         ndbc_config = NDBCConfig(station_ids="")
 
         mock_client = AsyncMock()
-        mock_client.get_active_stations = AsyncMock(
-            return_value=["46025", "46026", "46027"]
-        )
-        mock_client.get_observations_batch = AsyncMock(
-            return_value=[sample_observation]
-        )
+        mock_client.get_active_stations = AsyncMock(return_value=["46025", "46026", "46027"])
+        mock_client.get_observations_batch = AsyncMock(return_value=[sample_observation])
         mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata])
 
         producer = NDBCProducer(
@@ -216,9 +208,7 @@ class TestNDBCProducerRunOnce:
         await producer.run_once()
 
         mock_client.get_active_stations.assert_called_once()
-        mock_client.get_observations_batch.assert_called_once_with(
-            ["46025", "46026", "46027"]
-        )
+        mock_client.get_observations_batch.assert_called_once_with(["46025", "46026", "46027"])
 
     @pytest.mark.asyncio
     async def test_run_once_no_stations(
@@ -256,9 +246,7 @@ class TestNDBCProducerRunOnce:
         ndbc_config = NDBCConfig(station_ids="46025")
 
         mock_client = AsyncMock()
-        mock_client.get_observations_batch = AsyncMock(
-            return_value=[sample_observation]
-        )
+        mock_client.get_observations_batch = AsyncMock(return_value=[sample_observation])
         mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata])
 
         producer = NDBCProducer(

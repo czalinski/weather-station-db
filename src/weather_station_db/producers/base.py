@@ -43,9 +43,11 @@ class BaseProducer(ABC):
     def producer(self) -> KafkaProducerProtocol:
         """Lazy-initialize Kafka producer."""
         if self._producer is None:
-            self._producer = Producer({
-                "bootstrap.servers": self.kafka_config.bootstrap_servers,
-            })
+            self._producer = Producer(
+                {
+                    "bootstrap.servers": self.kafka_config.bootstrap_servers,
+                }
+            )
         return self._producer
 
     def _delivery_callback(self, err: object, msg: object) -> None:
@@ -84,9 +86,7 @@ class BaseProducer(ABC):
     @abstractmethod
     async def run_once(self) -> None:
         """Fetch data and publish to Kafka once."""
-        pass
 
     @abstractmethod
     async def run_forever(self) -> None:
         """Run polling loop indefinitely."""
-        pass

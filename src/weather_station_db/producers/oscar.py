@@ -43,51 +43,49 @@ class OSCARProducer(BaseProducer):
         station_classes = self.oscar_config.get_station_classes_list()
         facility_types = self.oscar_config.get_facility_types_list()
 
-        # If specific filters are configured, use search API
-        if territories or station_classes or facility_types:
-            # If we have multiple territories, we need to search for each
-            if territories:
-                all_stations = []
-                for territory in territories:
-                    stations = await self.client.search_stations(
-                        territory=territory,
-                        station_class=station_classes[0] if station_classes else None,
-                        facility_type=facility_types[0] if facility_types else None,
-                    )
-                    all_stations.extend(stations)
-                # Apply additional filters locally if we have multiple classes/types
-                if len(station_classes) > 1 or len(facility_types) > 1:
-                    all_stations = self.client.filter_stations(
-                        all_stations,
-                        station_classes=station_classes if len(station_classes) > 1 else None,
-                        facility_types=facility_types if len(facility_types) > 1 else None,
-                    )
-                logger.info(
-                    "Found %d stations in territories: %s",
-                    len(all_stations),
-                    ", ".join(territories),
-                )
-                return all_stations
-            else:
-                # No territories, but have class or type filters
-                # Fetch all and filter locally
-                all_stations = await self.client.get_all_stations()
-                filtered = self.client.filter_stations(
-                    all_stations,
-                    station_classes=station_classes,
-                    facility_types=facility_types,
-                )
-                logger.info(
-                    "Filtered to %d stations (from %d total)",
-                    len(filtered),
-                    len(all_stations),
-                )
-                return filtered
-        else:
-            # No filters, fetch all approved stations
+        # No filters - fetch all approved stations
+        if not (territories or station_classes or facility_types):
             stations = await self.client.get_all_stations()
             logger.info("Loaded %d approved stations from OSCAR", len(stations))
             return stations
+
+        # Have territory filters - search for each territory
+        if territories:
+            all_stations = []
+            for territory in territories:
+                stations = await self.client.search_stations(
+                    territory=territory,
+                    station_class=station_classes[0] if station_classes else None,
+                    facility_type=facility_types[0] if facility_types else None,
+                )
+                all_stations.extend(stations)
+            # Apply additional filters locally if we have multiple classes/types
+            if len(station_classes) > 1 or len(facility_types) > 1:
+                all_stations = self.client.filter_stations(
+                    all_stations,
+                    station_classes=station_classes if len(station_classes) > 1 else None,
+                    facility_types=facility_types if len(facility_types) > 1 else None,
+                )
+            logger.info(
+                "Found %d stations in territories: %s",
+                len(all_stations),
+                ", ".join(territories),
+            )
+            return all_stations
+
+        # No territories, but have class or type filters - fetch all and filter locally
+        all_stations = await self.client.get_all_stations()
+        filtered = self.client.filter_stations(
+            all_stations,
+            station_classes=station_classes,
+            facility_types=facility_types,
+        )
+        logger.info(
+            "Filtered to %d stations (from %d total)",
+            len(filtered),
+            len(all_stations),
+        )
+        return filtered
 
     async def run_once(self) -> None:
         """Fetch stations and publish metadata to Kafka."""

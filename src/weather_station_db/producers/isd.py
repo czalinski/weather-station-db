@@ -89,9 +89,7 @@ class ISDProducer(BaseProducer):
             return
 
         # Calculate lookback time
-        since = datetime.now(timezone.utc) - timedelta(
-            hours=self.isd_config.lookback_hours
-        )
+        since = datetime.now(timezone.utc) - timedelta(hours=self.isd_config.lookback_hours)
 
         # Fetch and publish observations
         observations = await self.client.get_observations_batch(stations, since)

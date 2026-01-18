@@ -117,9 +117,7 @@ class TestISDProducerInit:
         assert producer.kafka_config is not None
         assert producer.isd_config is not None
 
-    def test_init_with_custom_configs(
-        self, kafka_config: KafkaConfig, isd_config: ISDConfig
-    ):
+    def test_init_with_custom_configs(self, kafka_config: KafkaConfig, isd_config: ISDConfig):
         """Test producer initializes with custom configs."""
         producer = ISDProducer(
             kafka_config=kafka_config,

@@ -44,7 +44,33 @@ This platform ingests weather observation data from multiple global sources and 
 - **HTTP Client**: httpx (async)
 - **Validation**: Pydantic v2
 - **Testing**: pytest, pytest-asyncio
+- **Linting**: pylint (no errors allowed)
+- **Formatting**: black (strict compliance required)
 - **Local Kafka**: Docker Compose (Redpanda or Confluent)
+
+## Code Quality Requirements
+
+All Python code must pass the following checks before each commit:
+
+### Black Formatting
+- All code must be formatted with `black`
+- Line length: 100 characters (configured in pyproject.toml)
+- Run `black .` to format all files
+- Run `black --check .` to verify compliance
+
+### Pylint
+- All code must pass pylint with **zero errors**
+- Warnings are allowed but should be minimized
+- Run `pylint src/` to check source code
+- Configuration is in pyproject.toml
+
+### Pre-commit Workflow
+Before committing, run:
+```bash
+black .
+pylint src/
+pytest tests/unit
+```
 
 ## Shared Concepts
 

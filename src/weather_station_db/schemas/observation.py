@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from .enums import DataSource
 
-
 PressureTendency = Literal["rising", "falling", "steady"]
 
 

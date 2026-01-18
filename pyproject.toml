@@ -22,6 +22,8 @@ dev = [
     "respx>=0.20.0",  # httpx mocking
     "ruff>=0.2.0",
     "mypy>=1.8.0",
+    "black>=24.0.0",
+    "pylint>=3.0.0",
 ]
 
 [build-system]
@@ -48,3 +50,23 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pylint.main]
+ignore-patterns = ["test_.*\\.py", "conftest\\.py"]
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+]
+
+[tool.pylint.format]
+max-line-length = 100

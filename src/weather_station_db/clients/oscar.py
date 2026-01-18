@@ -91,9 +91,7 @@ class OSCARStation:
 
         # Status
         status = (
-            data.get("stationStatus")
-            or data.get("declaredStatus")
-            or data.get("stationStatusCode")
+            data.get("stationStatus") or data.get("declaredStatus") or data.get("stationStatusCode")
         )
 
         return cls(
@@ -192,7 +190,6 @@ class OSCARClient:
             all_stations.extend(stations)
 
             # Check if more pages
-            total_count = data.get("totalCount", 0)
             page_count = data.get("pageCount", 1)
             if page_number >= page_count:
                 break
@@ -302,22 +299,19 @@ class OSCARClient:
         if territories:
             territories_lower = {t.lower() for t in territories}
             filtered = [
-                s for s in filtered
-                if s.territory and s.territory.lower() in territories_lower
+                s for s in filtered if s.territory and s.territory.lower() in territories_lower
             ]
 
         if station_classes:
             classes_lower = {c.lower() for c in station_classes}
             filtered = [
-                s for s in filtered
-                if s.station_class and s.station_class.lower() in classes_lower
+                s for s in filtered if s.station_class and s.station_class.lower() in classes_lower
             ]
 
         if facility_types:
             types_lower = {t.lower() for t in facility_types}
             filtered = [
-                s for s in filtered
-                if s.facility_type and s.facility_type.lower() in types_lower
+                s for s in filtered if s.facility_type and s.facility_type.lower() in types_lower
             ]
 
         return filtered
@@ -356,9 +350,7 @@ class OSCARClient:
             updated_at=datetime.now(timezone.utc),
         )
 
-    async def get_metadata_batch(
-        self, stations: list[OSCARStation]
-    ) -> list[StationMetadata]:
+    async def get_metadata_batch(self, stations: list[OSCARStation]) -> list[StationMetadata]:
         """Convert multiple stations to StationMetadata.
 
         Args:

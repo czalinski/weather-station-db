@@ -138,9 +138,7 @@ class TestOSCARStationFromAPIResponse:
 
 
 class TestParseStationList:
-    def test_parse_list_format(
-        self, oscar_client: OSCARClient, approved_stations_data: list
-    ):
+    def test_parse_list_format(self, oscar_client: OSCARClient, approved_stations_data: list):
         """Test parsing station list in array format."""
         stations = oscar_client._parse_station_list(approved_stations_data)
 
@@ -180,50 +178,34 @@ class TestParseStationList:
 
 
 class TestFilterStations:
-    def test_filter_by_territory(
-        self, oscar_client: OSCARClient, approved_stations_data: list
-    ):
+    def test_filter_by_territory(self, oscar_client: OSCARClient, approved_stations_data: list):
         """Test filtering stations by territory."""
         stations = oscar_client._parse_station_list(approved_stations_data)
-        filtered = oscar_client.filter_stations(
-            stations, territories=["United States of America"]
-        )
+        filtered = oscar_client.filter_stations(stations, territories=["United States of America"])
 
         assert len(filtered) == 2
         assert all(s.territory == "United States of America" for s in filtered)
 
-    def test_filter_by_station_class(
-        self, oscar_client: OSCARClient, approved_stations_data: list
-    ):
+    def test_filter_by_station_class(self, oscar_client: OSCARClient, approved_stations_data: list):
         """Test filtering stations by station class."""
         stations = oscar_client._parse_station_list(approved_stations_data)
-        filtered = oscar_client.filter_stations(
-            stations, station_classes=["synoptic"]
-        )
+        filtered = oscar_client.filter_stations(stations, station_classes=["synoptic"])
 
         assert len(filtered) == 3
         assert all(s.station_class == "synoptic" for s in filtered)
 
-    def test_filter_by_facility_type(
-        self, oscar_client: OSCARClient, approved_stations_data: list
-    ):
+    def test_filter_by_facility_type(self, oscar_client: OSCARClient, approved_stations_data: list):
         """Test filtering stations by facility type."""
         stations = oscar_client._parse_station_list(approved_stations_data)
-        filtered = oscar_client.filter_stations(
-            stations, facility_types=["Sea fixed"]
-        )
+        filtered = oscar_client.filter_stations(stations, facility_types=["Sea fixed"])
 
         assert len(filtered) == 1
         assert filtered[0].facility_type == "Sea fixed"
 
-    def test_filter_case_insensitive(
-        self, oscar_client: OSCARClient, approved_stations_data: list
-    ):
+    def test_filter_case_insensitive(self, oscar_client: OSCARClient, approved_stations_data: list):
         """Test that filtering is case-insensitive."""
         stations = oscar_client._parse_station_list(approved_stations_data)
-        filtered = oscar_client.filter_stations(
-            stations, station_classes=["SYNOPTIC"]
-        )
+        filtered = oscar_client.filter_stations(stations, station_classes=["SYNOPTIC"])
 
         assert len(filtered) == 3
 
@@ -306,9 +288,7 @@ class TestToStationMetadata:
 class TestHTTPRequests:
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_all_stations(
-        self, oscar_client: OSCARClient, approved_stations_data: list
-    ):
+    async def test_get_all_stations(self, oscar_client: OSCARClient, approved_stations_data: list):
         """Test fetching all stations via search API."""
         # Mock the paginated search endpoint
         response_data = {
@@ -364,9 +344,7 @@ class TestHTTPRequests:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_search_stations(
-        self, oscar_client: OSCARClient, search_results_data: dict
-    ):
+    async def test_search_stations(self, oscar_client: OSCARClient, search_results_data: dict):
         """Test searching stations with filters (uses client-side filtering)."""
         # search_stations now fetches all and filters client-side
         response_data = {
@@ -390,13 +368,11 @@ class TestHTTPRequests:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_station_detail(
-        self, oscar_client: OSCARClient, station_detail_data: dict
-    ):
+    async def test_get_station_detail(self, oscar_client: OSCARClient, station_detail_data: dict):
         """Test fetching station detail."""
-        respx.get(
-            "https://oscar.wmo.int/surface/rest/api/stations/station/0-20000-0-72053"
-        ).mock(return_value=httpx.Response(200, json=station_detail_data))
+        respx.get("https://oscar.wmo.int/surface/rest/api/stations/station/0-20000-0-72053").mock(
+            return_value=httpx.Response(200, json=station_detail_data)
+        )
 
         station = await oscar_client.get_station_detail("0-20000-0-72053")
 
@@ -408,9 +384,9 @@ class TestHTTPRequests:
     @pytest.mark.asyncio
     async def test_get_station_detail_404(self, oscar_client: OSCARClient):
         """Test handling 404 for station detail."""
-        respx.get(
-            "https://oscar.wmo.int/surface/rest/api/stations/station/invalid"
-        ).mock(return_value=httpx.Response(404))
+        respx.get("https://oscar.wmo.int/surface/rest/api/stations/station/invalid").mock(
+            return_value=httpx.Response(404)
+        )
 
         station = await oscar_client.get_station_detail("invalid")
         assert station is None

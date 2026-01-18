@@ -60,9 +60,7 @@ def station_page_content() -> str:
 
 
 class TestParseStationTable:
-    def test_parse_valid_station_table(
-        self, ndbc_client: NDBCClient, station_table_content: str
-    ):
+    def test_parse_valid_station_table(self, ndbc_client: NDBCClient, station_table_content: str):
         """Test parsing station table extracts station IDs."""
         stations = ndbc_client._parse_station_table(station_table_content)
 
@@ -84,9 +82,7 @@ class TestParseStationTable:
 
 
 class TestParseObservation:
-    def test_parse_valid_observation(
-        self, ndbc_client: NDBCClient, observation_content: str
-    ):
+    def test_parse_valid_observation(self, ndbc_client: NDBCClient, observation_content: str):
         """Test parsing valid observation data."""
         obs = ndbc_client._parse_realtime_observation("46025", observation_content)
 
@@ -147,9 +143,7 @@ class TestParseObservation:
         obs = ndbc_client._parse_realtime_observation("46025", content)
         assert obs is None
 
-    def test_observation_timestamp(
-        self, ndbc_client: NDBCClient, observation_content: str
-    ):
+    def test_observation_timestamp(self, ndbc_client: NDBCClient, observation_content: str):
         """Test observation timestamp is parsed correctly."""
         obs = ndbc_client._parse_realtime_observation("46025", observation_content)
 
@@ -160,9 +154,7 @@ class TestParseObservation:
         assert obs.observed_at.hour == 12
         assert obs.observed_at.minute == 0
 
-    def test_observation_has_ingested_at(
-        self, ndbc_client: NDBCClient, observation_content: str
-    ):
+    def test_observation_has_ingested_at(self, ndbc_client: NDBCClient, observation_content: str):
         """Test observation has ingested_at timestamp."""
         obs = ndbc_client._parse_realtime_observation("46025", observation_content)
 
@@ -172,9 +164,7 @@ class TestParseObservation:
 
 
 class TestParseStationMetadata:
-    def test_parse_station_page(
-        self, ndbc_client: NDBCClient, station_page_content: str
-    ):
+    def test_parse_station_page(self, ndbc_client: NDBCClient, station_page_content: str):
         """Test parsing station page HTML."""
         metadata = ndbc_client._parse_station_metadata("46025", station_page_content)
 
@@ -191,9 +181,7 @@ class TestParseStationMetadata:
 class TestHTTPRequests:
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_active_stations(
-        self, ndbc_client: NDBCClient, station_table_content: str
-    ):
+    async def test_get_active_stations(self, ndbc_client: NDBCClient, station_table_content: str):
         """Test fetching active stations via HTTP."""
         respx.get("https://www.ndbc.noaa.gov/data/stations/station_table.txt").mock(
             return_value=httpx.Response(200, text=station_table_content)
@@ -218,9 +206,7 @@ class TestHTTPRequests:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_latest_observation(
-        self, ndbc_client: NDBCClient, observation_content: str
-    ):
+    async def test_get_latest_observation(self, ndbc_client: NDBCClient, observation_content: str):
         """Test fetching latest observation via HTTP."""
         respx.get("https://www.ndbc.noaa.gov/data/realtime2/46025.txt").mock(
             return_value=httpx.Response(200, text=observation_content)
@@ -246,9 +232,7 @@ class TestHTTPRequests:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_observations_batch(
-        self, ndbc_client: NDBCClient, observation_content: str
-    ):
+    async def test_get_observations_batch(self, ndbc_client: NDBCClient, observation_content: str):
         """Test fetching multiple observations in batch."""
         respx.get("https://www.ndbc.noaa.gov/data/realtime2/46025.txt").mock(
             return_value=httpx.Response(200, text=observation_content)
@@ -260,9 +244,7 @@ class TestHTTPRequests:
             return_value=httpx.Response(404)
         )
 
-        observations = await ndbc_client.get_observations_batch(
-            ["46025", "46026", "99999"]
-        )
+        observations = await ndbc_client.get_observations_batch(["46025", "46026", "99999"])
 
         assert len(observations) == 2
 

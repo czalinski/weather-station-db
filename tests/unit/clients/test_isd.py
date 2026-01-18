@@ -111,9 +111,7 @@ class TestISDStation:
 
 
 class TestParseStationList:
-    def test_parse_valid_station_list(
-        self, isd_client: ISDClient, station_history_content: str
-    ):
+    def test_parse_valid_station_list(self, isd_client: ISDClient, station_history_content: str):
         """Test parsing station history CSV."""
         stations = isd_client._parse_station_list(station_history_content)
 
@@ -147,9 +145,7 @@ class TestParseStationList:
 
 
 class TestFilterStations:
-    def test_filter_by_country(
-        self, isd_client: ISDClient, station_history_content: str
-    ):
+    def test_filter_by_country(self, isd_client: ISDClient, station_history_content: str):
         """Test filtering stations by country code."""
         stations = isd_client._parse_station_list(station_history_content)
         filtered = isd_client.filter_stations(stations, country_codes=["US"])
@@ -166,9 +162,7 @@ class TestFilterStations:
 
         assert len(filtered) == 4
 
-    def test_filter_by_station_ids(
-        self, isd_client: ISDClient, station_history_content: str
-    ):
+    def test_filter_by_station_ids(self, isd_client: ISDClient, station_history_content: str):
         """Test filtering by specific station IDs."""
         stations = isd_client._parse_station_list(station_history_content)
         filtered = isd_client.filter_stations(
@@ -178,9 +172,7 @@ class TestFilterStations:
         assert len(filtered) == 2
         assert {s.station_id for s in filtered} == {"720534-00164", "725090-14732"}
 
-    def test_filter_by_active_year(
-        self, isd_client: ISDClient, station_history_content: str
-    ):
+    def test_filter_by_active_year(self, isd_client: ISDClient, station_history_content: str):
         """Test filtering by active year."""
         stations = isd_client._parse_station_list(station_history_content)
         filtered = isd_client.filter_stations(stations, active_year=2024)
@@ -190,14 +182,10 @@ class TestFilterStations:
 
 
 class TestParseObservation:
-    def test_parse_valid_observation(
-        self, isd_client: ISDClient, observation_content: str
-    ):
+    def test_parse_valid_observation(self, isd_client: ISDClient, observation_content: str):
         """Test parsing valid observation data."""
         since = datetime(2024, 1, 15, 9, 0, tzinfo=timezone.utc)
-        observations = isd_client._parse_observations(
-            "720534-00164", observation_content, since
-        )
+        observations = isd_client._parse_observations("720534-00164", observation_content, since)
 
         assert len(observations) == 3
 
@@ -214,22 +202,16 @@ class TestParseObservation:
         assert obs.precipitation_1h_mm == pytest.approx(2.5)
         assert obs.weather_code == "RA"
 
-    def test_parse_filters_by_since(
-        self, isd_client: ISDClient, observation_content: str
-    ):
+    def test_parse_filters_by_since(self, isd_client: ISDClient, observation_content: str):
         """Test that observations before 'since' are filtered."""
         since = datetime(2024, 1, 15, 11, 30, tzinfo=timezone.utc)
-        observations = isd_client._parse_observations(
-            "720534-00164", observation_content, since
-        )
+        observations = isd_client._parse_observations("720534-00164", observation_content, since)
 
         # Only the 12:00 observation should be included
         assert len(observations) == 1
         assert observations[0].observed_at.hour == 12
 
-    def test_parse_missing_values(
-        self, isd_client: ISDClient, observation_missing_content: str
-    ):
+    def test_parse_missing_values(self, isd_client: ISDClient, observation_missing_content: str):
         """Test parsing observation with missing values."""
         since = datetime(2024, 1, 1, tzinfo=timezone.utc)
         observations = isd_client._parse_observations(
@@ -320,9 +302,7 @@ class TestParseFields:
 
 class TestStationMetadata:
     @pytest.mark.asyncio
-    async def test_get_station_metadata(
-        self, isd_client: ISDClient, sample_station: ISDStation
-    ):
+    async def test_get_station_metadata(self, isd_client: ISDClient, sample_station: ISDStation):
         """Test converting ISDStation to StationMetadata."""
         metadata = await isd_client.get_station_metadata(sample_station)
 
@@ -359,9 +339,7 @@ class TestStationMetadata:
 class TestHTTPRequests:
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_station_list(
-        self, isd_client: ISDClient, station_history_content: str
-    ):
+    async def test_get_station_list(self, isd_client: ISDClient, station_history_content: str):
         """Test fetching station list via HTTP."""
         respx.get("https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv").mock(
             return_value=httpx.Response(200, text=station_history_content)
@@ -421,9 +399,7 @@ class TestHTTPRequests:
 
     @respx.mock
     @pytest.mark.asyncio
-    async def test_get_observations_404(
-        self, isd_client: ISDClient, sample_station: ISDStation
-    ):
+    async def test_get_observations_404(self, isd_client: ISDClient, sample_station: ISDStation):
         """Test handling 404 when fetching observations."""
         year = datetime.now(timezone.utc).year
         respx.get(

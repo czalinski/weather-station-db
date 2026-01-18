@@ -7,6 +7,7 @@ import pytest
 def kafka_bootstrap_servers() -> str:
     """Kafka broker address for integration tests."""
     import os
+
     return os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
 

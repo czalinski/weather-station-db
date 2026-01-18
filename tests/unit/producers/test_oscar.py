@@ -104,9 +104,7 @@ class TestOSCARProducerInit:
         assert producer.kafka_config is not None
         assert producer.oscar_config is not None
 
-    def test_init_with_custom_configs(
-        self, kafka_config: KafkaConfig, oscar_config: OSCARConfig
-    ):
+    def test_init_with_custom_configs(self, kafka_config: KafkaConfig, oscar_config: OSCARConfig):
         """Test producer initializes with custom configs."""
         producer = OSCARProducer(
             kafka_config=kafka_config,
@@ -151,9 +149,7 @@ class TestOSCARProducerRunOnce:
         """Test run_once fetches all stations when no filters."""
         mock_client = AsyncMock()
         mock_client.get_all_stations = AsyncMock(return_value=sample_oscar_stations)
-        mock_client.get_metadata_batch = AsyncMock(
-            return_value=[sample_metadata, sample_metadata]
-        )
+        mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata, sample_metadata])
 
         producer = OSCARProducer(
             client=mock_client,

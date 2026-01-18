@@ -117,9 +117,7 @@ class NDBCClient:
 
         return self._parse_station_metadata(station_id, response.text)
 
-    def _parse_station_metadata(
-        self, station_id: str, content: str
-    ) -> StationMetadata | None:
+    def _parse_station_metadata(self, station_id: str, content: str) -> StationMetadata | None:
         """Parse station page HTML to extract metadata.
 
         This is a simplified parser that extracts key fields from the HTML.
@@ -130,14 +128,12 @@ class NDBCClient:
 
         if not lat_match or not lon_match:
             # Try alternate format
-            coord_match = re.search(
-                r"(\d+\.\d+)\s*[NS]\s+(\d+\.\d+)\s*[WE]", content
-            )
+            coord_match = re.search(r"(\d+\.\d+)\s*[NS]\s+(\d+\.\d+)\s*[WE]", content)
             if coord_match:
                 lat = float(coord_match.group(1))
                 lon = float(coord_match.group(2))
                 # Assume West longitude is negative
-                if "W" in content[coord_match.start():coord_match.end() + 5]:
+                if "W" in content[coord_match.start() : coord_match.end() + 5]:
                     lon = -lon
             else:
                 logger.warning("Could not parse coordinates for station %s", station_id)
@@ -146,9 +142,9 @@ class NDBCClient:
             lat = float(lat_match.group(1))
             lon = float(lon_match.group(1))
             # Check hemisphere
-            if "S" in content[lat_match.start():lat_match.end() + 2]:
+            if "S" in content[lat_match.start() : lat_match.end() + 2]:
                 lat = -lat
-            if "W" in content[lon_match.start():lon_match.end() + 2]:
+            if "W" in content[lon_match.start() : lon_match.end() + 2]:
                 lon = -lon
 
         # Extract station name
@@ -186,26 +182,21 @@ class NDBCClient:
 
         return self._parse_realtime_observation(station_id, response.text)
 
-    def _parse_realtime_observation(
-        self, station_id: str, content: str
-    ) -> Observation | None:
+    def _parse_realtime_observation(self, station_id: str, content: str) -> Observation | None:
         """Parse realtime2 data file and extract latest observation.
 
         Format is space-separated with two header rows:
-        #YY  MM DD hh mm WDIR WSPD GST  WVHT   DPD   APD MWD   PRES  ATMP  WTMP  DEWP  VIS PTDY  TIDE
-        #yr  mo dy hr mn degT m/s  m/s     m   sec   sec degT   hPa  degC  degC  degC  nmi  hPa    ft
-        2024 01 15 12 00  270  5.1  7.2   1.8  12.5   MM  MM 1018.5  15.2  14.8   MM   MM   MM    MM
+        #YY  MM DD hh mm WDIR WSPD GST  WVHT   DPD   APD MWD   PRES  ATMP ...
+        #yr  mo dy hr mn degT m/s  m/s     m   sec   sec degT   hPa  degC ...
+        2024 01 15 12 00  270  5.1  7.2   1.8  12.5   MM  MM 1018.5 ...
         """
         lines = content.strip().split("\n")
 
-        # Find header line and data lines
-        header_line = None
+        # Find data lines (skip header lines starting with #)
         data_lines: list[str] = []
 
         for line in lines:
-            if line.startswith("#YY") or line.startswith("#yr"):
-                header_line = line
-            elif not line.startswith("#") and line.strip():
+            if not line.startswith("#") and line.strip():
                 data_lines.append(line)
 
         if not data_lines:
@@ -215,9 +206,7 @@ class NDBCClient:
         # Parse the first (most recent) data line
         return self._parse_observation_line(station_id, data_lines[0])
 
-    def _parse_observation_line(
-        self, station_id: str, line: str
-    ) -> Observation | None:
+    def _parse_observation_line(self, station_id: str, line: str) -> Observation | None:
         """Parse a single observation line from realtime2 data."""
         parts = line.split()
 
@@ -266,9 +255,7 @@ class NDBCClient:
             )
 
         except (ValueError, IndexError) as e:
-            logger.warning(
-                "Failed to parse observation for station %s: %s", station_id, e
-            )
+            logger.warning("Failed to parse observation for station %s: %s", station_id, e)
             return None
 
     def _extract_observation_fields(self, parts: list[str]) -> dict[str, Any]:
@@ -323,9 +310,7 @@ class NDBCClient:
 
         return data
 
-    async def get_observations_batch(
-        self, station_ids: list[str]
-    ) -> list[Observation]:
+    async def get_observations_batch(self, station_ids: list[str]) -> list[Observation]:
         """Fetch observations for multiple stations concurrently."""
         tasks = [self.get_latest_observation(sid) for sid in station_ids]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -333,17 +318,13 @@ class NDBCClient:
         observations: list[Observation] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.warning(
-                    "Error fetching station %s: %s", station_ids[i], result
-                )
+                logger.warning("Error fetching station %s: %s", station_ids[i], result)
             elif result is not None:
                 observations.append(result)
 
         return observations
 
-    async def get_metadata_batch(
-        self, station_ids: list[str]
-    ) -> list[StationMetadata]:
+    async def get_metadata_batch(self, station_ids: list[str]) -> list[StationMetadata]:
         """Fetch metadata for multiple stations concurrently."""
         tasks = [self.get_station_metadata(sid) for sid in station_ids]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -351,9 +332,7 @@ class NDBCClient:
         metadata_list: list[StationMetadata] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.warning(
-                    "Error fetching metadata for %s: %s", station_ids[i], result
-                )
+                logger.warning("Error fetching metadata for %s: %s", station_ids[i], result)
             elif result is not None:
                 metadata_list.append(result)
 
