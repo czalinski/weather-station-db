@@ -64,11 +64,31 @@ All Python code must pass the following checks before each commit:
 - Run `pylint src/` to check source code
 - Configuration is in pyproject.toml
 
-### Pre-commit Workflow
-Before committing, run:
+### Pre-commit Hooks
+Pre-commit hooks are configured to automatically enforce code quality on every commit.
+
+**Initial setup (one-time):**
 ```bash
+pip install pre-commit
+pre-commit install
+```
+
+**What the hooks check:**
+- Black formatting (auto-fixes on commit)
+- Pylint errors (blocks commit if errors found)
+- Trailing whitespace and EOF fixes
+- YAML validation
+- Large file detection
+- Merge conflict markers
+
+**Manual commands:**
+```bash
+# Run all hooks on all files
+pre-commit run --all-files
+
+# Run specific checks
 black .
-pylint src/
+pylint src/ --errors-only
 pytest tests/unit
 ```
 
