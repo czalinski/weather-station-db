@@ -5,15 +5,22 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from weather_station_db.config import KafkaConfig, NDBCConfig
+from weather_station_db.config import CSVConfig, KafkaConfig, NDBCConfig
 from weather_station_db.producers.ndbc import NDBCProducer
 from weather_station_db.schemas import DataSource, Observation, StationMetadata
+
+
+@pytest.fixture
+def csv_config() -> CSVConfig:
+    """CSV configuration for testing."""
+    return CSVConfig(enabled=False)
 
 
 @pytest.fixture
 def kafka_config() -> KafkaConfig:
     """Kafka configuration for testing."""
     return KafkaConfig(
+        enabled=False,
         bootstrap_servers="localhost:9092",
         metadata_topic="test.station.metadata",
         observation_topic="test.observation.raw",
@@ -32,13 +39,14 @@ def ndbc_config() -> NDBCConfig:
 
 
 @pytest.fixture
-def mock_kafka_producer() -> MagicMock:
-    """Mock Kafka producer."""
-    producer = MagicMock()
-    producer.produce = MagicMock()
-    producer.flush = MagicMock(return_value=0)
-    producer.poll = MagicMock(return_value=0)
-    return producer
+def mock_output_manager() -> MagicMock:
+    """Mock OutputManager."""
+    manager = MagicMock()
+    manager.write_observation = MagicMock()
+    manager.write_metadata = MagicMock()
+    manager.flush = MagicMock()
+    manager.close = MagicMock()
+    return manager
 
 
 @pytest.fixture
@@ -81,9 +89,15 @@ class TestNDBCProducerInit:
         assert producer.kafka_config is not None
         assert producer.ndbc_config is not None
 
-    def test_init_with_custom_configs(self, kafka_config: KafkaConfig, ndbc_config: NDBCConfig):
+    def test_init_with_custom_configs(
+        self,
+        csv_config: CSVConfig,
+        kafka_config: KafkaConfig,
+        ndbc_config: NDBCConfig,
+    ):
         """Test producer initializes with custom configs."""
         producer = NDBCProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
             ndbc_config=ndbc_config,
         )
@@ -95,66 +109,65 @@ class TestNDBCProducerInit:
 class TestNDBCProducerPublish:
     def test_publish_observation(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_observation: Observation,
     ):
-        """Test publishing observation to Kafka."""
+        """Test publishing observation via OutputManager."""
         producer = NDBCProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         producer.publish_observation(sample_observation)
 
-        mock_kafka_producer.produce.assert_called_once()
-        call_kwargs = mock_kafka_producer.produce.call_args
-        assert call_kwargs.kwargs["topic"] == "test.observation.raw"
-        assert call_kwargs.kwargs["key"] == "ndbc.46025"
-        assert "15.2" in call_kwargs.kwargs["value"]  # air_temp_c
+        mock_output_manager.write_observation.assert_called_once_with(sample_observation)
 
     def test_publish_station_metadata(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_metadata: StationMetadata,
     ):
-        """Test publishing station metadata to Kafka."""
+        """Test publishing station metadata via OutputManager."""
         producer = NDBCProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         producer.publish_station_metadata(sample_metadata)
 
-        mock_kafka_producer.produce.assert_called_once()
-        call_kwargs = mock_kafka_producer.produce.call_args
-        assert call_kwargs.kwargs["topic"] == "test.station.metadata"
-        assert call_kwargs.kwargs["key"] == "ndbc.46025"
-        assert "Santa Monica" in call_kwargs.kwargs["value"]
+        mock_output_manager.write_metadata.assert_called_once_with(sample_metadata)
 
-    def test_flush_calls_producer_flush(
+    def test_flush_calls_output_manager_flush(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
     ):
-        """Test flush calls underlying producer flush."""
+        """Test flush calls underlying OutputManager flush."""
         producer = NDBCProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
-        producer.flush(timeout=5.0)
+        producer.flush()
 
-        mock_kafka_producer.flush.assert_called_once_with(5.0)
+        mock_output_manager.flush.assert_called_once()
 
 
 class TestNDBCProducerRunOnce:
     @pytest.mark.asyncio
     async def test_run_once_with_configured_stations(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_observation: Observation,
         sample_metadata: StationMetadata,
     ):
@@ -167,9 +180,10 @@ class TestNDBCProducerRunOnce:
 
         producer = NDBCProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             ndbc_config=ndbc_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
@@ -180,13 +194,15 @@ class TestNDBCProducerRunOnce:
         mock_client.get_metadata_batch.assert_called_once_with(["46025", "46026"])
 
         # Should have published observation and metadata
-        assert mock_kafka_producer.produce.call_count == 2
+        mock_output_manager.write_observation.assert_called_once()
+        mock_output_manager.write_metadata.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_run_once_fetches_all_stations(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_observation: Observation,
         sample_metadata: StationMetadata,
     ):
@@ -200,9 +216,10 @@ class TestNDBCProducerRunOnce:
 
         producer = NDBCProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             ndbc_config=ndbc_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
@@ -213,8 +230,9 @@ class TestNDBCProducerRunOnce:
     @pytest.mark.asyncio
     async def test_run_once_no_stations(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
     ):
         """Test run_once handles empty station list."""
         ndbc_config = NDBCConfig(station_ids="")
@@ -224,21 +242,23 @@ class TestNDBCProducerRunOnce:
 
         producer = NDBCProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             ndbc_config=ndbc_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
 
         mock_client.get_observations_batch.assert_not_called()
-        mock_kafka_producer.produce.assert_not_called()
+        mock_output_manager.write_observation.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_run_once_flushes_messages(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_observation: Observation,
         sample_metadata: StationMetadata,
     ):
@@ -251,33 +271,36 @@ class TestNDBCProducerRunOnce:
 
         producer = NDBCProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             ndbc_config=ndbc_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
 
-        mock_kafka_producer.flush.assert_called_once()
+        mock_output_manager.flush.assert_called_once()
 
 
 class TestNDBCProducerClose:
     @pytest.mark.asyncio
     async def test_close_closes_client(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
     ):
         """Test close method closes the client."""
         mock_client = AsyncMock()
 
         producer = NDBCProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.close()
 
         mock_client.close.assert_called_once()
-        mock_kafka_producer.flush.assert_called_once()
+        mock_output_manager.close.assert_called_once()

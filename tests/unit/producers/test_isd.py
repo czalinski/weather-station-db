@@ -6,15 +6,22 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from weather_station_db.clients.isd import ISDStation
-from weather_station_db.config import ISDConfig, KafkaConfig
+from weather_station_db.config import CSVConfig, ISDConfig, KafkaConfig
 from weather_station_db.producers.isd import ISDProducer
 from weather_station_db.schemas import DataSource, Observation, StationMetadata
+
+
+@pytest.fixture
+def csv_config() -> CSVConfig:
+    """CSV configuration for testing."""
+    return CSVConfig(enabled=False)
 
 
 @pytest.fixture
 def kafka_config() -> KafkaConfig:
     """Kafka configuration for testing."""
     return KafkaConfig(
+        enabled=False,
         bootstrap_servers="localhost:9092",
         metadata_topic="test.station.metadata",
         observation_topic="test.observation.raw",
@@ -35,13 +42,14 @@ def isd_config() -> ISDConfig:
 
 
 @pytest.fixture
-def mock_kafka_producer() -> MagicMock:
-    """Mock Kafka producer."""
-    producer = MagicMock()
-    producer.produce = MagicMock()
-    producer.flush = MagicMock(return_value=0)
-    producer.poll = MagicMock(return_value=0)
-    return producer
+def mock_output_manager() -> MagicMock:
+    """Mock OutputManager."""
+    manager = MagicMock()
+    manager.write_observation = MagicMock()
+    manager.write_metadata = MagicMock()
+    manager.flush = MagicMock()
+    manager.close = MagicMock()
+    return manager
 
 
 @pytest.fixture
@@ -117,9 +125,15 @@ class TestISDProducerInit:
         assert producer.kafka_config is not None
         assert producer.isd_config is not None
 
-    def test_init_with_custom_configs(self, kafka_config: KafkaConfig, isd_config: ISDConfig):
+    def test_init_with_custom_configs(
+        self,
+        csv_config: CSVConfig,
+        kafka_config: KafkaConfig,
+        isd_config: ISDConfig,
+    ):
         """Test producer initializes with custom configs."""
         producer = ISDProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
             isd_config=isd_config,
         )
@@ -131,49 +145,48 @@ class TestISDProducerInit:
 class TestISDProducerPublish:
     def test_publish_observation(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_observation: Observation,
     ):
-        """Test publishing observation to Kafka."""
+        """Test publishing observation via OutputManager."""
         producer = ISDProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         producer.publish_observation(sample_observation)
 
-        mock_kafka_producer.produce.assert_called_once()
-        call_kwargs = mock_kafka_producer.produce.call_args
-        assert call_kwargs.kwargs["topic"] == "test.observation.raw"
-        assert call_kwargs.kwargs["key"] == "isd.720534-00164"
+        mock_output_manager.write_observation.assert_called_once_with(sample_observation)
 
     def test_publish_station_metadata(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_metadata: StationMetadata,
     ):
-        """Test publishing station metadata to Kafka."""
+        """Test publishing station metadata via OutputManager."""
         producer = ISDProducer(
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         producer.publish_station_metadata(sample_metadata)
 
-        mock_kafka_producer.produce.assert_called_once()
-        call_kwargs = mock_kafka_producer.produce.call_args
-        assert call_kwargs.kwargs["topic"] == "test.station.metadata"
-        assert call_kwargs.kwargs["key"] == "isd.720534-00164"
+        mock_output_manager.write_metadata.assert_called_once_with(sample_metadata)
 
 
 class TestISDProducerRunOnce:
     @pytest.mark.asyncio
     async def test_run_once_with_configured_stations(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
         sample_observation: Observation,
         sample_metadata: StationMetadata,
@@ -189,9 +202,10 @@ class TestISDProducerRunOnce:
 
         producer = ISDProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             isd_config=isd_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
@@ -202,13 +216,15 @@ class TestISDProducerRunOnce:
         mock_client.get_metadata_batch.assert_called_once()
 
         # Should have published observation and metadata
-        assert mock_kafka_producer.produce.call_count == 2
+        mock_output_manager.write_observation.assert_called_once()
+        mock_output_manager.write_metadata.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_run_once_with_country_filter(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
         sample_observation: Observation,
         sample_metadata: StationMetadata,
@@ -224,9 +240,10 @@ class TestISDProducerRunOnce:
 
         producer = ISDProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             isd_config=isd_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
@@ -238,9 +255,10 @@ class TestISDProducerRunOnce:
     @pytest.mark.asyncio
     async def test_run_once_no_stations(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
         isd_config: ISDConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
     ):
         """Test run_once handles empty station list."""
         mock_client = AsyncMock()
@@ -249,21 +267,23 @@ class TestISDProducerRunOnce:
 
         producer = ISDProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             isd_config=isd_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
 
         mock_client.get_observations_batch.assert_not_called()
-        mock_kafka_producer.produce.assert_not_called()
+        mock_output_manager.write_observation.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_run_once_flushes_messages(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
         sample_observation: Observation,
         sample_metadata: StationMetadata,
@@ -279,20 +299,22 @@ class TestISDProducerRunOnce:
 
         producer = ISDProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             isd_config=isd_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
 
-        mock_kafka_producer.flush.assert_called_once()
+        mock_output_manager.flush.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_run_once_uses_lookback_hours(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
     ):
         """Test run_once passes correct lookback time."""
@@ -306,9 +328,10 @@ class TestISDProducerRunOnce:
 
         producer = ISDProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
             isd_config=isd_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.run_once()
@@ -323,19 +346,21 @@ class TestISDProducerClose:
     @pytest.mark.asyncio
     async def test_close_closes_client(
         self,
+        csv_config: CSVConfig,
         kafka_config: KafkaConfig,
-        mock_kafka_producer: MagicMock,
+        mock_output_manager: MagicMock,
     ):
         """Test close method closes the client."""
         mock_client = AsyncMock()
 
         producer = ISDProducer(
             client=mock_client,
+            csv_config=csv_config,
             kafka_config=kafka_config,
-            producer=mock_kafka_producer,
+            output_manager=mock_output_manager,
         )
 
         await producer.close()
 
         mock_client.close.assert_called_once()
-        mock_kafka_producer.flush.assert_called_once()
+        mock_output_manager.close.assert_called_once()

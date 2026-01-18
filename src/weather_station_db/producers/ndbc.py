@@ -1,27 +1,28 @@
-"""NDBC data producer for Kafka."""
+"""NDBC data producer."""
 
 import asyncio
 import logging
 
 from ..clients.ndbc import NDBCClient
-from ..config import KafkaConfig, NDBCConfig
-from .base import BaseProducer, KafkaProducerProtocol
+from ..config import CSVConfig, KafkaConfig, NDBCConfig
+from ..outputs import OutputManager
+from .base import BaseProducer
 
 logger = logging.getLogger(__name__)
 
 
 class NDBCProducer(BaseProducer):
-    """Producer that fetches NDBC buoy data and publishes to Kafka."""
+    """Producer that fetches NDBC buoy data and writes to enabled outputs."""
 
     def __init__(
         self,
         client: NDBCClient | None = None,
+        csv_config: CSVConfig | None = None,
         kafka_config: KafkaConfig | None = None,
         ndbc_config: NDBCConfig | None = None,
-        producer: KafkaProducerProtocol | None = None,
+        output_manager: OutputManager | None = None,
     ) -> None:
-        kafka_config = kafka_config or KafkaConfig()
-        super().__init__(kafka_config, producer)
+        super().__init__(csv_config, kafka_config, output_manager)
 
         self.ndbc_config = ndbc_config or NDBCConfig()
         self._client = client
@@ -92,4 +93,4 @@ class NDBCProducer(BaseProducer):
         """Clean up resources."""
         if self._client is not None:
             await self._client.close()
-        self.flush()
+        self.output_manager.close()

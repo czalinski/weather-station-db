@@ -1,97 +1,74 @@
-"""Base producer class with Kafka helpers."""
+"""Base producer class with output management."""
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Protocol
 
-from confluent_kafka import KafkaError, Message, Producer
-
-from ..config import KafkaConfig
+from ..config import CSVConfig, KafkaConfig
+from ..outputs import OutputManager
 from ..schemas import Observation, StationMetadata
 
 logger = logging.getLogger(__name__)
 
-# Type alias for delivery callback
-DeliveryCallback = Callable[[KafkaError | None, Message], None]
-
-
-class KafkaProducerProtocol(Protocol):
-    """Protocol for Kafka producer to allow mocking."""
-
-    def produce(
-        self,
-        topic: str,
-        key: str | bytes | None = None,
-        value: str | bytes | None = None,
-        callback: DeliveryCallback | None = None,
-    ) -> None: ...
-
-    def flush(self, timeout: float = -1) -> int: ...
-
-    def poll(self, timeout: float = 0) -> int: ...
-
 
 class BaseProducer(ABC):
-    """Base class for all data source producers."""
+    """Base class for all data source producers.
+
+    Producers fetch data from external sources and write to enabled outputs
+    (CSV files, Kafka, etc.) via the OutputManager.
+    """
 
     def __init__(
         self,
-        kafka_config: KafkaConfig,
-        producer: KafkaProducerProtocol | None = None,
+        csv_config: CSVConfig | None = None,
+        kafka_config: KafkaConfig | None = None,
+        output_manager: OutputManager | None = None,
     ) -> None:
-        self.kafka_config = kafka_config
-        self._producer: KafkaProducerProtocol | None = producer
+        """Initialize base producer.
+
+        Args:
+            csv_config: CSV output configuration.
+            kafka_config: Kafka output configuration.
+            output_manager: Optional OutputManager for testing.
+        """
+        self.csv_config = csv_config or CSVConfig()
+        self.kafka_config = kafka_config or KafkaConfig()
+
+        # Allow injecting OutputManager for testing
+        self._output_manager = output_manager
 
     @property
-    def producer(self) -> KafkaProducerProtocol:
-        """Lazy-initialize Kafka producer."""
-        if self._producer is None:
-            # Producer from confluent_kafka implements our protocol
-            self._producer = Producer(  # type: ignore[assignment]
-                {
-                    "bootstrap.servers": self.kafka_config.bootstrap_servers,
-                }
+    def output_manager(self) -> OutputManager:
+        """Lazy-initialize output manager."""
+        if self._output_manager is None:
+            self._output_manager = OutputManager(
+                csv_config=self.csv_config,
+                kafka_config=self.kafka_config,
             )
-        # At this point, _producer is guaranteed to be non-None
-        assert self._producer is not None
-        return self._producer
-
-    def _delivery_callback(self, err: KafkaError | None, msg: Message) -> None:
-        """Callback for Kafka delivery reports."""
-        if err is not None:
-            logger.error("Message delivery failed: %s", err)
-        else:
-            logger.debug("Message delivered to %s [%s]", msg.topic(), msg.partition())
+        return self._output_manager
 
     def publish_observation(self, observation: Observation) -> None:
-        """Publish an observation to Kafka."""
-        self.producer.produce(
-            topic=self.kafka_config.observation_topic,
-            key=observation.kafka_key(),
-            value=observation.model_dump_json(),
-            callback=self._delivery_callback,
-        )
-        self.producer.poll(0)
+        """Write observation to all enabled outputs.
+
+        Args:
+            observation: Observation to publish.
+        """
+        self.output_manager.write_observation(observation)
 
     def publish_station_metadata(self, metadata: StationMetadata) -> None:
-        """Publish station metadata to Kafka."""
-        self.producer.produce(
-            topic=self.kafka_config.metadata_topic,
-            key=metadata.kafka_key(),
-            value=metadata.model_dump_json(),
-            callback=self._delivery_callback,
-        )
-        self.producer.poll(0)
+        """Write station metadata to all enabled outputs.
 
-    def flush(self, timeout: float = 10.0) -> None:
-        """Flush pending messages to Kafka."""
-        remaining = self.producer.flush(timeout)
-        if remaining > 0:
-            logger.warning("Failed to flush %d messages", remaining)
+        Args:
+            metadata: Station metadata to publish.
+        """
+        self.output_manager.write_metadata(metadata)
+
+    def flush(self) -> None:
+        """Flush all output buffers."""
+        self.output_manager.flush()
 
     @abstractmethod
     async def run_once(self) -> None:
-        """Fetch data and publish to Kafka once."""
+        """Fetch data and publish once."""
 
     @abstractmethod
     async def close(self) -> None:

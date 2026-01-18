@@ -1,7 +1,7 @@
 [project]
 name = "weather-station-db"
 version = "0.1.0"
-description = "Weather station data ingestion platform - publishes to Kafka from NDBC, NOAA ISD, and WMO OSCAR"
+description = "Weather station data ingestion platform - collects data from NDBC, NOAA ISD, and WMO OSCAR to CSV and optionally Kafka/InfluxDB"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,8 +13,12 @@ dependencies = [
 
 [project.scripts]
 weather-station-db = "weather_station_db.main:main"
+weather-station-sync = "weather_station_db.sync_main:main"
 
 [project.optional-dependencies]
+influxdb = [
+    "influxdb-client>=1.40.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -25,6 +29,9 @@ dev = [
     "black>=24.0.0",
     "pylint>=3.0.0",
     "pre-commit>=3.6.0",
+]
+all = [
+    "influxdb-client>=1.40.0",
 ]
 
 [build-system]

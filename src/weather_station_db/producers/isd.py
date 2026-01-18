@@ -1,28 +1,29 @@
-"""NOAA ISD data producer for Kafka."""
+"""NOAA ISD data producer."""
 
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
 from ..clients.isd import ISDClient, ISDStation
-from ..config import ISDConfig, KafkaConfig
-from .base import BaseProducer, KafkaProducerProtocol
+from ..config import CSVConfig, ISDConfig, KafkaConfig
+from ..outputs import OutputManager
+from .base import BaseProducer
 
 logger = logging.getLogger(__name__)
 
 
 class ISDProducer(BaseProducer):
-    """Producer that fetches NOAA ISD data and publishes to Kafka."""
+    """Producer that fetches NOAA ISD data and writes to enabled outputs."""
 
     def __init__(
         self,
         client: ISDClient | None = None,
+        csv_config: CSVConfig | None = None,
         kafka_config: KafkaConfig | None = None,
         isd_config: ISDConfig | None = None,
-        producer: KafkaProducerProtocol | None = None,
+        output_manager: OutputManager | None = None,
     ) -> None:
-        kafka_config = kafka_config or KafkaConfig()
-        super().__init__(kafka_config, producer)
+        super().__init__(csv_config, kafka_config, output_manager)
 
         self.isd_config = isd_config or ISDConfig()
         self._client = client
@@ -133,4 +134,4 @@ class ISDProducer(BaseProducer):
         """Clean up resources."""
         if self._client is not None:
             await self._client.close()
-        self.flush()
+        self.output_manager.close()

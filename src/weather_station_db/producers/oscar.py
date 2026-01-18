@@ -1,31 +1,32 @@
-"""WMO OSCAR data producer for Kafka."""
+"""WMO OSCAR data producer."""
 
 import asyncio
 import logging
 
 from ..clients.oscar import OSCARClient, OSCARStation
-from ..config import KafkaConfig, OSCARConfig
-from .base import BaseProducer, KafkaProducerProtocol
+from ..config import CSVConfig, KafkaConfig, OSCARConfig
+from ..outputs import OutputManager
+from .base import BaseProducer
 
 logger = logging.getLogger(__name__)
 
 
 class OSCARProducer(BaseProducer):
-    """Producer that fetches WMO OSCAR station metadata and publishes to Kafka.
+    """Producer that fetches WMO OSCAR station metadata and writes to enabled outputs.
 
     Note: OSCAR only provides station metadata, not observations.
-    This producer publishes to the metadata topic only.
+    This producer writes to the metadata output only.
     """
 
     def __init__(
         self,
         client: OSCARClient | None = None,
+        csv_config: CSVConfig | None = None,
         kafka_config: KafkaConfig | None = None,
         oscar_config: OSCARConfig | None = None,
-        producer: KafkaProducerProtocol | None = None,
+        output_manager: OutputManager | None = None,
     ) -> None:
-        kafka_config = kafka_config or KafkaConfig()
-        super().__init__(kafka_config, producer)
+        super().__init__(csv_config, kafka_config, output_manager)
 
         self.oscar_config = oscar_config or OSCARConfig()
         self._client = client
@@ -128,4 +129,4 @@ class OSCARProducer(BaseProducer):
         """Clean up resources."""
         if self._client is not None:
             await self._client.close()
-        self.flush()
+        self.output_manager.close()

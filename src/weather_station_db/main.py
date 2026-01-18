@@ -132,11 +132,15 @@ async def run_all_producers(
 
     logger.info("Starting producers: %s", ", ".join(producers))
 
-    # Create producer instances
+    # Create producer instances with shared output configs
     tasks: list[asyncio.Task[None]] = []
 
     if "ndbc" in producers:
-        ndbc_producer = NDBCProducer()
+        ndbc_producer = NDBCProducer(
+            csv_config=settings.csv,
+            kafka_config=settings.kafka,
+            ndbc_config=settings.ndbc,
+        )
         tasks.append(
             asyncio.create_task(
                 run_producer(ndbc_producer, _shutdown_event, run_once),
@@ -145,7 +149,11 @@ async def run_all_producers(
         )
 
     if "isd" in producers:
-        isd_producer = ISDProducer()
+        isd_producer = ISDProducer(
+            csv_config=settings.csv,
+            kafka_config=settings.kafka,
+            isd_config=settings.isd,
+        )
         tasks.append(
             asyncio.create_task(
                 run_producer(isd_producer, _shutdown_event, run_once),
@@ -154,7 +162,11 @@ async def run_all_producers(
         )
 
     if "oscar" in producers:
-        oscar_producer = OSCARProducer()
+        oscar_producer = OSCARProducer(
+            csv_config=settings.csv,
+            kafka_config=settings.kafka,
+            oscar_config=settings.oscar,
+        )
         tasks.append(
             asyncio.create_task(
                 run_producer(oscar_producer, _shutdown_event, run_once),
@@ -187,7 +199,7 @@ async def run_all_producers(
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Weather Station Data Platform - Kafka Producers",
+        description="Weather Station Data Platform - Data Producers",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -203,8 +215,13 @@ Examples:
   # Run with debug logging
   weather-station-db --log-level DEBUG
 
-Environment Variables:
-  KAFKA_BOOTSTRAP_SERVERS  Kafka broker addresses (default: localhost:9092)
+Output Configuration:
+  CSV_ENABLED             Enable CSV output (default: true)
+  CSV_OUTPUT_DIR          Directory for CSV files (default: ./data)
+  KAFKA_ENABLED           Enable Kafka output (default: false)
+  KAFKA_BOOTSTRAP_SERVERS Kafka broker addresses (default: localhost:9092)
+
+Producer Configuration:
   NDBC_ENABLED            Enable NDBC producer (default: true)
   NDBC_STATION_IDS        Comma-separated station IDs (empty = all)
   ISD_ENABLED             Enable ISD producer (default: true)
@@ -254,7 +271,19 @@ def main() -> NoReturn:
     settings = get_settings()
 
     logger.info("Weather Station Data Platform starting")
-    logger.info("Kafka bootstrap servers: %s", settings.kafka.bootstrap_servers)
+
+    # Log enabled outputs
+    outputs: list[str] = []
+    if settings.csv.enabled:
+        outputs.append(f"CSV ({settings.csv.output_dir})")
+    if settings.kafka.enabled:
+        outputs.append(f"Kafka ({settings.kafka.bootstrap_servers})")
+
+    if not outputs:
+        logger.error("No outputs enabled! Set CSV_ENABLED=true or KAFKA_ENABLED=true")
+        sys.exit(1)
+
+    logger.info("Outputs enabled: %s", ", ".join(outputs))
 
     # Run the async main function
     try:

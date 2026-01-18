@@ -3,9 +3,36 @@
 from pydantic_settings import BaseSettings
 
 
+class CSVConfig(BaseSettings):
+    """CSV output configuration."""
+
+    enabled: bool = True
+    output_dir: str = "./data"
+    observation_file_prefix: str = "observations"
+    metadata_file_prefix: str = "metadata"
+    buffer_size: int = 100  # Flush after N records
+
+    model_config = {"env_prefix": "CSV_"}
+
+
+class InfluxDBConfig(BaseSettings):
+    """InfluxDB connection configuration for sync process."""
+
+    enabled: bool = False
+    url: str = "http://localhost:8086"
+    token: str = ""
+    org: str = "weather"
+    bucket: str = "weather-station"
+    batch_size: int = 5000
+    sync_interval_seconds: int = 300  # 5 minutes
+
+    model_config = {"env_prefix": "INFLUXDB_"}
+
+
 class KafkaConfig(BaseSettings):
     """Kafka connection configuration."""
 
+    enabled: bool = False  # Default off for standalone/Orange Pi deployments
     bootstrap_servers: str = "localhost:9092"
     metadata_topic: str = "weather.station.metadata"
     observation_topic: str = "weather.observation.raw"
@@ -95,6 +122,8 @@ class Settings(BaseSettings):
     """Application settings combining all configs."""
 
     log_level: str = "INFO"
+    csv: CSVConfig = CSVConfig()
+    influxdb: InfluxDBConfig = InfluxDBConfig()
     kafka: KafkaConfig = KafkaConfig()
     ndbc: NDBCConfig = NDBCConfig()
     isd: ISDConfig = ISDConfig()
