@@ -81,8 +81,17 @@ class TestISDStation:
         assert sample_station.is_active(2024) is True
 
     def test_is_active_past_year(self, sample_station: ISDStation):
-        """Test is_active for past year."""
-        assert sample_station.is_active(2025) is False
+        """Test is_active for year beyond grace period."""
+        # Station ended 2024, should not be active in 2027 (3 years later)
+        # since grace period is 2 years
+        assert sample_station.is_active(2027) is False
+
+    def test_is_active_within_grace_period(self, sample_station: ISDStation):
+        """Test is_active within 2-year grace period."""
+        # Station ended 2024, should still be active in 2025/2026
+        # due to 2-year grace period for stations not yet updated
+        assert sample_station.is_active(2025) is True
+        assert sample_station.is_active(2026) is True
 
     def test_is_active_no_end_date(self):
         """Test is_active when no end date."""

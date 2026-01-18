@@ -47,12 +47,19 @@ class ISDStation:
         return f"{self.usaf}-{self.wban}"
 
     def is_active(self, year: int) -> bool:
-        """Check if station was active in the given year."""
+        """Check if station was active in or near the given year.
+
+        Since the ISD history file may not be updated for the current year,
+        we consider stations active if their end_date is within 2 years
+        of the requested year.
+        """
         if not self.end_date:
             return True
         try:
             end_year = int(self.end_date[:4])
-            return end_year >= year
+            # Allow 2 year grace period for stations that may still be active
+            # but haven't been updated in the history file
+            return end_year >= (year - 2)
         except (ValueError, IndexError):
             return True
 

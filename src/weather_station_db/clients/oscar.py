@@ -44,15 +44,29 @@ class OSCARStation:
     @classmethod
     def from_api_response(cls, data: dict[str, Any]) -> "OSCARStation | None":
         """Create OSCARStation from API response dict."""
-        wigos_id = data.get("wigosStationIdentifier") or data.get("wmoIndexNumber")
+        # Try different ID fields
+        wigos_id = data.get("wigosId") or data.get("wigosStationIdentifier")
+        if not wigos_id:
+            # Try getting from nested wigosStationIdentifiers
+            wigos_ids = data.get("wigosStationIdentifiers", [])
+            if wigos_ids and isinstance(wigos_ids, list):
+                for wid in wigos_ids:
+                    if isinstance(wid, dict) and wid.get("primary"):
+                        wigos_id = wid.get("wigosStationIdentifier")
+                        break
+                if not wigos_id and wigos_ids:
+                    wigos_id = wigos_ids[0].get("wigosStationIdentifier")
         if not wigos_id:
             return None
 
-        # Extract territory/country info
-        territory_data = data.get("territory", {})
+        # Extract territory - can be a string or dict
+        territory_data = data.get("territory")
         if isinstance(territory_data, dict):
             country_code = territory_data.get("countryCode")
             territory_name = territory_data.get("name")
+        elif isinstance(territory_data, str):
+            territory_name = territory_data if territory_data != "(inapplicable)" else None
+            country_code = None
         else:
             country_code = None
             territory_name = None
@@ -66,6 +80,22 @@ class OSCARStation:
         else:
             owner = None
 
+        # Region handling
+        region = data.get("region")
+        if region == "(inapplicable)":
+            region = None
+
+        # Station type/class
+        station_class = data.get("stationClass") or data.get("stationTypeName")
+        facility_type = data.get("facilityType") or data.get("stationTypeCode")
+
+        # Status
+        status = (
+            data.get("stationStatus")
+            or data.get("declaredStatus")
+            or data.get("stationStatusCode")
+        )
+
         return cls(
             wigos_id=str(wigos_id),
             name=data.get("name"),
@@ -74,11 +104,11 @@ class OSCARStation:
             elevation_m=cls._parse_float(data.get("elevation")),
             country_code=country_code,
             territory=territory_name,
-            region=data.get("region"),
-            station_class=data.get("stationClass"),
-            facility_type=data.get("facilityType"),
+            region=region,
+            station_class=station_class,
+            facility_type=facility_type,
             owner=owner,
-            status=data.get("stationStatus") or data.get("status"),
+            status=status,
         )
 
     @staticmethod
@@ -125,7 +155,7 @@ class OSCARClient:
             self._http_client = None
 
     async def get_all_stations(self, use_cache: bool = True) -> list[OSCARStation]:
-        """Fetch all approved stations from OSCAR.
+        """Fetch all stations from OSCAR search API.
 
         Args:
             use_cache: If True, return cached list if available.
@@ -136,23 +166,41 @@ class OSCARClient:
         if use_cache and self._station_cache is not None:
             return self._station_cache
 
-        url = f"{self.config.base_url}/stations/approvedStations"
+        all_stations: list[OSCARStation] = []
+        page_number = 1
+        items_per_page = 50000  # OSCAR API max
 
-        try:
-            response = await self.http_client.get(url)
-            response.raise_for_status()
-            data = response.json()
-        except httpx.HTTPError as e:
-            logger.error("Failed to fetch OSCAR stations: %s", e)
-            return []
-        except Exception as e:
-            logger.error("Error parsing OSCAR response: %s", e)
-            return []
+        while True:
+            url = f"{self.config.base_url}/search/station"
+            params = {
+                "pageNumber": str(page_number),
+                "itemsPerPage": str(items_per_page),
+            }
 
-        stations = self._parse_station_list(data)
-        self._station_cache = stations
-        logger.info("Loaded %d stations from OSCAR", len(stations))
-        return stations
+            try:
+                response = await self.http_client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+            except httpx.HTTPError as e:
+                logger.error("Failed to fetch OSCAR stations (page %d): %s", page_number, e)
+                break
+            except Exception as e:
+                logger.error("Error parsing OSCAR response: %s", e)
+                break
+
+            stations = self._parse_station_list(data)
+            all_stations.extend(stations)
+
+            # Check if more pages
+            total_count = data.get("totalCount", 0)
+            page_count = data.get("pageCount", 1)
+            if page_number >= page_count:
+                break
+            page_number += 1
+
+        self._station_cache = all_stations
+        logger.info("Loaded %d stations from OSCAR", len(all_stations))
+        return all_stations
 
     def _parse_station_list(self, data: Any) -> list[OSCARStation]:
         """Parse station list from API response."""
@@ -183,6 +231,9 @@ class OSCARClient:
     ) -> list[OSCARStation]:
         """Search stations with filters.
 
+        Note: OSCAR API query parameters are unreliable, so we fetch all
+        stations and filter client-side.
+
         Args:
             territory: Filter by territory/country name.
             station_class: Filter by station class (e.g., 'synoptic').
@@ -191,28 +242,15 @@ class OSCARClient:
         Returns:
             List of matching OSCARStation objects.
         """
-        url = f"{self.config.base_url}/search/station"
-        params: dict[str, str] = {}
+        # Fetch all stations and filter client-side
+        all_stations = await self.get_all_stations()
 
-        if territory:
-            params["territoryName"] = territory
-        if station_class:
-            params["stationClass"] = station_class
-        if facility_type:
-            params["facilityType"] = facility_type
-
-        try:
-            response = await self.http_client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-        except httpx.HTTPError as e:
-            logger.error("Failed to search OSCAR stations: %s", e)
-            return []
-        except Exception as e:
-            logger.error("Error parsing OSCAR search response: %s", e)
-            return []
-
-        return self._parse_station_list(data)
+        return self.filter_stations(
+            all_stations,
+            territories=[territory] if territory else None,
+            station_classes=[station_class] if station_class else None,
+            facility_types=[facility_type] if facility_type else None,
+        )
 
     async def get_station_detail(self, wigos_id: str) -> OSCARStation | None:
         """Fetch detailed info for a single station.
