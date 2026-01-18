@@ -66,3 +66,6 @@ docker-compose.override.yml
 # Local Kafka data (if not using docker volumes)
 kafka-data/
 redpanda-data/
+
+# CSV output data
+data/
