@@ -1,7 +1,9 @@
 """CSV writer for weather station data with daily file rotation."""
 
 import csv
+import gzip
 import logging
+import shutil
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TextIO
@@ -81,7 +83,11 @@ class CSVWriter:
         """Rotate files if date has changed."""
         today = datetime.now(timezone.utc).date()
         if self._current_date != today:
+            old_date = self._current_date
             self._close_files()
+            # Compress old files if we rotated from a previous date
+            if old_date is not None and self.config.compress_on_rotate:
+                self._compress_files_for_date(old_date)
             self._current_date = today
             self._open_files()
 
@@ -125,6 +131,44 @@ class CSVWriter:
             self._meta_file.close()
             self._meta_file = None
             self._meta_writer = None
+
+    def _compress_files_for_date(self, file_date: date) -> None:
+        """Compress CSV files for a specific date.
+
+        Args:
+            file_date: The date of the files to compress.
+        """
+        date_str = file_date.strftime("%Y-%m-%d")
+
+        # Compress observations file
+        obs_path = self._output_dir / f"{self.config.observation_file_prefix}-{date_str}.csv"
+        if obs_path.exists():
+            self._compress_file(obs_path)
+
+        # Compress metadata file
+        meta_path = self._output_dir / f"{self.config.metadata_file_prefix}-{date_str}.csv"
+        if meta_path.exists():
+            self._compress_file(meta_path)
+
+    def _compress_file(self, file_path: Path) -> None:
+        """Compress a single file with gzip.
+
+        Args:
+            file_path: Path to the file to compress.
+        """
+        gz_path = file_path.with_suffix(file_path.suffix + ".gz")
+        try:
+            with open(file_path, "rb") as f_in:
+                with gzip.open(gz_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            # Remove original after successful compression
+            file_path.unlink()
+            logger.info("Compressed %s -> %s", file_path.name, gz_path.name)
+        except Exception as e:
+            logger.error("Failed to compress %s: %s", file_path, e)
+            # Clean up partial gz file if it exists
+            if gz_path.exists():
+                gz_path.unlink()
 
     def write_observation(self, observation: Observation) -> None:
         """Write observation to CSV file.

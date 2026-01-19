@@ -7,6 +7,7 @@ import signal
 import sys
 from typing import NoReturn
 
+from .alerts import DataMonitor, NtfyAlerter
 from .config import get_settings
 from .sync import InfluxDBSync
 
@@ -33,12 +34,17 @@ def setup_logging(level: str = "INFO") -> None:
     )
 
 
-async def run_sync_loop(sync: InfluxDBSync, interval: int) -> None:
+async def run_sync_loop(
+    sync: InfluxDBSync,
+    interval: int,
+    monitor: DataMonitor | None = None,
+) -> None:
     """Run sync in a loop with specified interval.
 
     Args:
         sync: InfluxDBSync instance.
         interval: Seconds between sync runs.
+        monitor: Optional DataMonitor for alerting on stale data.
     """
     global _shutdown_requested
 
@@ -46,12 +52,19 @@ async def run_sync_loop(sync: InfluxDBSync, interval: int) -> None:
 
     while not _shutdown_requested:
         try:
-            results = sync.sync_all()
+            results, timestamps = sync.sync_all()
             total = sum(results.values())
             if total > 0:
                 logger.info("Sync cycle complete: %d total points synced", total)
             else:
                 logger.debug("Sync cycle complete: no new data to sync")
+
+            # Update monitor with latest observation times
+            if monitor:
+                for source, ts in timestamps.items():
+                    monitor.update_observation_time(source, ts)
+                monitor.check_and_alert()
+
         except Exception as e:
             logger.error("Sync cycle failed: %s", e, exc_info=True)
 
@@ -80,6 +93,9 @@ Examples:
   # Run with debug logging
   weather-station-sync --log-level DEBUG
 
+  # Send test alert
+  weather-station-sync --test-alert
+
 Environment Variables:
   CSV_OUTPUT_DIR              Directory containing CSV files (default: ./data)
   INFLUXDB_ENABLED           Enable InfluxDB sync (default: false)
@@ -88,6 +104,12 @@ Environment Variables:
   INFLUXDB_ORG               InfluxDB organization
   INFLUXDB_BUCKET            InfluxDB bucket name
   INFLUXDB_SYNC_INTERVAL_SECONDS  Seconds between sync runs (default: 300)
+
+Alert Configuration:
+  ALERT_ENABLED              Enable ntfy.sh alerts (default: false)
+  ALERT_NTFY_SERVER          ntfy.sh server URL (default: https://ntfy.sh)
+  ALERT_NTFY_TOPIC           ntfy.sh topic name
+  ALERT_STALE_THRESHOLD_MINUTES   Alert if no data for N minutes (default: 60)
         """,
     )
 
@@ -95,6 +117,12 @@ Environment Variables:
         "--once",
         action="store_true",
         help="Run sync once and exit",
+    )
+
+    parser.add_argument(
+        "--test-alert",
+        action="store_true",
+        help="Send a test alert and exit",
     )
 
     parser.add_argument(
@@ -123,7 +151,23 @@ def main() -> NoReturn:
     # Load settings
     settings = get_settings()
 
-    # Validate configuration
+    # Handle test alert mode
+    if args.test_alert:
+        if not settings.alert.enabled:
+            logger.error("Alerts are not enabled. Set ALERT_ENABLED=true")
+            sys.exit(1)
+
+        alerter = NtfyAlerter(settings.alert)
+        logger.info("Sending test alert to topic: %s", settings.alert.ntfy_topic)
+        success = alerter.send_test_alert()
+        if success:
+            logger.info("Test alert sent successfully!")
+            sys.exit(0)
+        else:
+            logger.error("Failed to send test alert")
+            sys.exit(1)
+
+    # Validate configuration for sync mode
     if not settings.influxdb.enabled:
         logger.error("InfluxDB is not enabled. Set INFLUXDB_ENABLED=true")
         sys.exit(1)
@@ -141,6 +185,13 @@ def main() -> NoReturn:
     logger.info("InfluxDB URL: %s", settings.influxdb.url)
     logger.info("InfluxDB bucket: %s/%s", settings.influxdb.org, settings.influxdb.bucket)
 
+    # Set up alerting if enabled
+    monitor: DataMonitor | None = None
+    if settings.alert.enabled:
+        alerter = NtfyAlerter(settings.alert)
+        monitor = DataMonitor(alerter, settings.alert)
+        logger.info("Alerts enabled: %s/%s", settings.alert.ntfy_server, settings.alert.ntfy_topic)
+
     # Set up signal handlers
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)
@@ -155,12 +206,18 @@ def main() -> NoReturn:
         if args.once:
             # Single sync run
             logger.info("Running single sync")
-            results = sync.sync_all()
+            results, timestamps = sync.sync_all()
             total = sum(results.values())
             logger.info("Sync complete: %d total points synced", total)
+
+            # Update monitor and check for alerts
+            if monitor:
+                for source, ts in timestamps.items():
+                    monitor.update_observation_time(source, ts)
+                monitor.check_and_alert()
         else:
             # Continuous sync loop
-            asyncio.run(run_sync_loop(sync, settings.influxdb.sync_interval_seconds))
+            asyncio.run(run_sync_loop(sync, settings.influxdb.sync_interval_seconds, monitor))
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
     finally:

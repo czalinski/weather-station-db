@@ -1,10 +1,11 @@
 """InfluxDB sync for uploading CSV weather data."""
 
 import csv
+import gzip
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO
 
 from ..config import CSVConfig, InfluxDBConfig
 from .progress_tracker import SyncProgressTracker
@@ -123,26 +124,40 @@ class InfluxDBSync:
 
         return point
 
-    def sync_observations_file(self, file_path: Path) -> int:
+    def _open_csv_file(self, file_path: Path) -> TextIO:
+        """Open a CSV file, handling both .csv and .csv.gz.
+
+        Args:
+            file_path: Path to the CSV file.
+
+        Returns:
+            File handle for reading.
+        """
+        if file_path.suffix == ".gz":
+            return gzip.open(file_path, "rt", encoding="utf-8", newline="")
+        return open(file_path, "r", newline="", encoding="utf-8")
+
+    def sync_observations_file(self, file_path: Path) -> tuple[int, dict[str, datetime]]:
         """Sync a single observations CSV file to InfluxDB.
 
         Args:
-            file_path: Path to observations CSV file.
+            file_path: Path to observations CSV file (.csv or .csv.gz).
 
         Returns:
-            Number of points written.
+            Tuple of (points_written, latest_timestamps_by_source).
         """
         from influxdb_client.client.write_api import SYNCHRONOUS
 
         last_line = self._progress.get_last_line(str(file_path))
         points_written = 0
         current_line = 0
+        latest_by_source: dict[str, datetime] = {}
 
         write_api = self.client.write_api(write_options=SYNCHRONOUS)
         batch: list["Point"] = []
 
         try:
-            with open(file_path, "r", newline="", encoding="utf-8") as f:
+            with self._open_csv_file(file_path) as f:
                 reader = csv.DictReader(f)
 
                 for line_num, row in enumerate(reader, start=1):
@@ -153,6 +168,13 @@ class InfluxDBSync:
                     try:
                         point = self._observation_to_point(row)
                         batch.append(point)
+
+                        # Track latest observation time per source
+                        source = row["source"]
+                        obs_time = datetime.fromisoformat(row["observed_at"])
+                        if source not in latest_by_source or obs_time > latest_by_source[source]:
+                            latest_by_source[source] = obs_time
+
                     except Exception as e:
                         logger.warning("Failed to convert row %d in %s: %s", line_num, file_path, e)
                         continue
@@ -180,37 +202,48 @@ class InfluxDBSync:
             logger.error("Error syncing %s: %s", file_path, e)
             raise
 
-        return points_written
+        return points_written, latest_by_source
 
-    def sync_all(self) -> dict[str, int]:
+    def sync_all(self) -> tuple[dict[str, int], dict[str, datetime]]:
         """Sync all observation CSV files to InfluxDB.
 
         Returns:
-            Dict mapping file paths to number of points written.
+            Tuple of (results, latest_timestamps):
+            - results: Dict mapping file paths to number of points written.
+            - latest_timestamps: Dict mapping source names to latest observation time.
         """
         results: dict[str, int] = {}
+        latest_timestamps: dict[str, datetime] = {}
 
-        # Find all observation CSV files
-        pattern = f"{self.csv_config.observation_file_prefix}-*.csv"
-        csv_files = sorted(self._data_dir.glob(pattern))
+        # Find all observation CSV files (both .csv and .csv.gz)
+        prefix = self.csv_config.observation_file_prefix
+        csv_files = list(self._data_dir.glob(f"{prefix}-*.csv"))
+        gz_files = list(self._data_dir.glob(f"{prefix}-*.csv.gz"))
+        all_files = sorted(set(csv_files) | set(gz_files), key=lambda p: p.name)
 
-        if not csv_files:
+        if not all_files:
             logger.info("No observation files found in %s", self._data_dir)
-            return results
+            return results, latest_timestamps
 
-        logger.info("Found %d observation files to sync", len(csv_files))
+        logger.info("Found %d observation files to sync", len(all_files))
 
-        for csv_file in csv_files:
+        for csv_file in all_files:
             try:
-                count = self.sync_observations_file(csv_file)
+                count, file_timestamps = self.sync_observations_file(csv_file)
                 results[str(csv_file)] = count
                 if count > 0:
                     logger.info("Synced %d points from %s", count, csv_file.name)
+
+                # Merge timestamps (keep latest per source)
+                for source, ts in file_timestamps.items():
+                    if source not in latest_timestamps or ts > latest_timestamps[source]:
+                        latest_timestamps[source] = ts
+
             except Exception as e:
                 logger.error("Failed to sync %s: %s", csv_file, e)
                 results[str(csv_file)] = 0
 
-        return results
+        return results, latest_timestamps
 
     def close(self) -> None:
         """Close InfluxDB client."""

@@ -11,6 +11,7 @@ class CSVConfig(BaseSettings):
     observation_file_prefix: str = "observations"
     metadata_file_prefix: str = "metadata"
     buffer_size: int = 100  # Flush after N records
+    compress_on_rotate: bool = True  # Gzip previous day's files when rotating
 
     model_config = {"env_prefix": "CSV_"}
 
@@ -27,6 +28,18 @@ class InfluxDBConfig(BaseSettings):
     sync_interval_seconds: int = 300  # 5 minutes
 
     model_config = {"env_prefix": "INFLUXDB_"}
+
+
+class AlertConfig(BaseSettings):
+    """Alert notification configuration."""
+
+    enabled: bool = False
+    ntfy_server: str = "https://ntfy.sh"
+    ntfy_topic: str = "ws-db-a7x9k2"
+    stale_threshold_minutes: int = 60  # Alert if no data for this long
+    min_alert_interval_minutes: int = 30  # Don't spam alerts
+
+    model_config = {"env_prefix": "ALERT_"}
 
 
 class KafkaConfig(BaseSettings):
@@ -124,6 +137,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     csv: CSVConfig = CSVConfig()
     influxdb: InfluxDBConfig = InfluxDBConfig()
+    alert: AlertConfig = AlertConfig()
     kafka: KafkaConfig = KafkaConfig()
     ndbc: NDBCConfig = NDBCConfig()
     isd: ISDConfig = ISDConfig()
