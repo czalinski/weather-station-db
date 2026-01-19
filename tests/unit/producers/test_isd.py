@@ -1,4 +1,8 @@
-"""Unit tests for ISD producer."""
+"""Unit tests for ISD producer.
+
+Note: ISD is now metadata-only. Observation functionality was removed.
+Use NWS or Open-Meteo producers for real-time observations.
+"""
 
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
@@ -188,16 +192,14 @@ class TestISDProducerRunOnce:
         kafka_config: KafkaConfig,
         mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
-        sample_observation: Observation,
         sample_metadata: StationMetadata,
     ):
-        """Test run_once with configured station IDs."""
+        """Test run_once with configured station IDs (metadata-only)."""
         isd_config = ISDConfig(station_ids="720534-00164,725090-14732")
 
         mock_client = AsyncMock()
         mock_client.get_station_list = AsyncMock(return_value=sample_stations)
         mock_client.filter_stations = MagicMock(return_value=sample_stations)
-        mock_client.get_observations_batch = AsyncMock(return_value=[sample_observation])
         mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata])
 
         producer = ISDProducer(
@@ -212,11 +214,9 @@ class TestISDProducerRunOnce:
 
         mock_client.get_station_list.assert_called_once()
         mock_client.filter_stations.assert_called_once()
-        mock_client.get_observations_batch.assert_called_once()
         mock_client.get_metadata_batch.assert_called_once()
 
-        # Should have published observation and metadata
-        mock_output_manager.write_observation.assert_called_once()
+        # Should have published metadata only (ISD is metadata-only now)
         mock_output_manager.write_metadata.assert_called_once()
 
     @pytest.mark.asyncio
@@ -226,7 +226,6 @@ class TestISDProducerRunOnce:
         kafka_config: KafkaConfig,
         mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
-        sample_observation: Observation,
         sample_metadata: StationMetadata,
     ):
         """Test run_once with country code filter."""
@@ -235,7 +234,6 @@ class TestISDProducerRunOnce:
         mock_client = AsyncMock()
         mock_client.get_station_list = AsyncMock(return_value=sample_stations)
         mock_client.filter_stations = MagicMock(return_value=sample_stations)
-        mock_client.get_observations_batch = AsyncMock(return_value=[sample_observation])
         mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata])
 
         producer = ISDProducer(
@@ -275,8 +273,8 @@ class TestISDProducerRunOnce:
 
         await producer.run_once()
 
-        mock_client.get_observations_batch.assert_not_called()
-        mock_output_manager.write_observation.assert_not_called()
+        mock_client.get_metadata_batch.assert_not_called()
+        mock_output_manager.write_metadata.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_run_once_flushes_messages(
@@ -285,7 +283,6 @@ class TestISDProducerRunOnce:
         kafka_config: KafkaConfig,
         mock_output_manager: MagicMock,
         sample_stations: list[ISDStation],
-        sample_observation: Observation,
         sample_metadata: StationMetadata,
     ):
         """Test run_once flushes messages after publishing."""
@@ -294,7 +291,6 @@ class TestISDProducerRunOnce:
         mock_client = AsyncMock()
         mock_client.get_station_list = AsyncMock(return_value=sample_stations)
         mock_client.filter_stations = MagicMock(return_value=sample_stations[:1])
-        mock_client.get_observations_batch = AsyncMock(return_value=[sample_observation])
         mock_client.get_metadata_batch = AsyncMock(return_value=[sample_metadata])
 
         producer = ISDProducer(
@@ -308,38 +304,6 @@ class TestISDProducerRunOnce:
         await producer.run_once()
 
         mock_output_manager.flush.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_run_once_uses_lookback_hours(
-        self,
-        csv_config: CSVConfig,
-        kafka_config: KafkaConfig,
-        mock_output_manager: MagicMock,
-        sample_stations: list[ISDStation],
-    ):
-        """Test run_once passes correct lookback time."""
-        isd_config = ISDConfig(station_ids="720534-00164", lookback_hours=6)
-
-        mock_client = AsyncMock()
-        mock_client.get_station_list = AsyncMock(return_value=sample_stations)
-        mock_client.filter_stations = MagicMock(return_value=sample_stations[:1])
-        mock_client.get_observations_batch = AsyncMock(return_value=[])
-        mock_client.get_metadata_batch = AsyncMock(return_value=[])
-
-        producer = ISDProducer(
-            client=mock_client,
-            csv_config=csv_config,
-            kafka_config=kafka_config,
-            isd_config=isd_config,
-            output_manager=mock_output_manager,
-        )
-
-        await producer.run_once()
-
-        # Check that get_observations_batch was called with a 'since' datetime
-        call_args = mock_client.get_observations_batch.call_args
-        since = call_args.args[1]
-        assert since.tzinfo == timezone.utc
 
 
 class TestISDProducerClose:

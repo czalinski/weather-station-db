@@ -131,6 +131,64 @@ class OSCARConfig(BaseSettings):
         return [s.strip() for s in self.facility_types.split(",") if s.strip()]
 
 
+class OpenMeteoConfig(BaseSettings):
+    """Open-Meteo API configuration for global weather data."""
+
+    enabled: bool = False
+    base_url: str = "https://api.open-meteo.com/v1"
+    fetch_interval_seconds: int = 900  # 15 minutes
+    request_delay_ms: int = 100
+    max_concurrent: int = 50
+    station_source: str = "configured"  # oscar, isd, or configured
+    configured_locations: str = ""  # "name:lat:lon,name2:lat2:lon2"
+
+    model_config = {"env_prefix": "OPENMETEO_"}
+
+    def get_configured_locations_list(self) -> list[tuple[str, float, float]]:
+        """Parse configured_locations into list of (name, lat, lon) tuples."""
+        if not self.configured_locations.strip():
+            return []
+        result: list[tuple[str, float, float]] = []
+        for entry in self.configured_locations.split(","):
+            parts = entry.strip().split(":")
+            if len(parts) == 3:
+                try:
+                    name = parts[0].strip()
+                    lat = float(parts[1].strip())
+                    lon = float(parts[2].strip())
+                    result.append((name, lat, lon))
+                except ValueError:
+                    continue
+        return result
+
+
+class NWSConfig(BaseSettings):
+    """NOAA NWS API configuration for US weather stations."""
+
+    enabled: bool = False
+    base_url: str = "https://api.weather.gov"
+    user_agent: str = "weather-station-db/1.0 (github.com/weather-station-db)"
+    fetch_interval_seconds: int = 300  # 5 minutes
+    request_delay_ms: int = 200  # Conservative due to rate limiting
+    max_concurrent: int = 5  # Conservative to avoid rate limiting
+    station_ids: str = ""  # Comma-separated NWS station IDs (e.g., "KJFK,KLGA")
+    states: str = ""  # Comma-separated state codes to fetch all stations
+
+    model_config = {"env_prefix": "NWS_"}
+
+    def get_station_ids_list(self) -> list[str]:
+        """Parse station_ids string into list."""
+        if not self.station_ids.strip():
+            return []
+        return [s.strip().upper() for s in self.station_ids.split(",") if s.strip()]
+
+    def get_states_list(self) -> list[str]:
+        """Parse states string into list."""
+        if not self.states.strip():
+            return []
+        return [s.strip().upper() for s in self.states.split(",") if s.strip()]
+
+
 class Settings(BaseSettings):
     """Application settings combining all configs."""
 
@@ -142,6 +200,8 @@ class Settings(BaseSettings):
     ndbc: NDBCConfig = NDBCConfig()
     isd: ISDConfig = ISDConfig()
     oscar: OSCARConfig = OSCARConfig()
+    openmeteo: OpenMeteoConfig = OpenMeteoConfig()
+    nws: NWSConfig = NWSConfig()
 
 
 def get_settings() -> Settings:

@@ -1,8 +1,12 @@
-"""NOAA ISD data producer."""
+"""NOAA ISD station metadata producer.
+
+This producer fetches station metadata from ISD. For real-time observations,
+use the NWS or Open-Meteo producers instead, as ISD data is typically delayed.
+"""
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from ..clients.isd import ISDClient, ISDStation
 from ..config import CSVConfig, ISDConfig, KafkaConfig
@@ -13,7 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 class ISDProducer(BaseProducer):
-    """Producer that fetches NOAA ISD data and writes to enabled outputs."""
+    """Producer that fetches NOAA ISD station metadata.
+
+    Note: This producer only provides station metadata, not observations.
+    ISD observation data is typically delayed and not suitable for real-time use.
+    Use NWS or Open-Meteo producers for real-time weather observations.
+    """
 
     def __init__(
         self,
@@ -80,24 +89,14 @@ class ISDProducer(BaseProducer):
         return stations
 
     async def run_once(self) -> None:
-        """Fetch stations and publish observations and metadata."""
-        logger.info("Starting ISD data fetch")
+        """Fetch station metadata and publish."""
+        logger.info("Starting ISD metadata fetch")
 
         stations = await self._get_stations_to_process()
 
         if not stations:
             logger.warning("No stations to process")
             return
-
-        # Calculate lookback time
-        since = datetime.now(timezone.utc) - timedelta(hours=self.isd_config.lookback_hours)
-
-        # Fetch and publish observations
-        observations = await self.client.get_observations_batch(stations, since)
-        logger.info("Fetched %d observations from %d stations", len(observations), len(stations))
-
-        for obs in observations:
-            self.publish_observation(obs)
 
         # Fetch and publish metadata
         metadata_list = await self.client.get_metadata_batch(stations)
@@ -109,16 +108,12 @@ class ISDProducer(BaseProducer):
         # Flush all pending messages
         self.flush()
 
-        logger.info(
-            "ISD fetch complete: %d observations, %d metadata records published",
-            len(observations),
-            len(metadata_list),
-        )
+        logger.info("ISD fetch complete: %d metadata records published", len(metadata_list))
 
     async def run_forever(self) -> None:
         """Run polling loop indefinitely."""
         logger.info(
-            "Starting ISD producer with %d second interval",
+            "Starting ISD metadata producer with %d second interval",
             self.isd_config.fetch_interval_seconds,
         )
 

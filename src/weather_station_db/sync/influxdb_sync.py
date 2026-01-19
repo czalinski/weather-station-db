@@ -11,7 +11,7 @@ from ..config import CSVConfig, InfluxDBConfig
 from .progress_tracker import SyncProgressTracker
 
 if TYPE_CHECKING:
-    from influxdb_client import InfluxDBClient, Point
+    from influxdb_client import InfluxDBClient, Point  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class InfluxDBSync:
         """Lazy-initialize InfluxDB client."""
         if self._client is None:
             # Import here to make influxdb-client an optional dependency
-            from influxdb_client import InfluxDBClient
+            from influxdb_client import InfluxDBClient  # type: ignore[attr-defined]
 
             self._client = InfluxDBClient(
                 url=self.influxdb_config.url,
@@ -69,17 +69,17 @@ class InfluxDBSync:
         Returns:
             InfluxDB Point for the observation.
         """
-        from influxdb_client import Point, WritePrecision
+        from influxdb_client import Point, WritePrecision  # type: ignore[attr-defined]
 
-        point = Point("observation")
+        point = Point("observation")  # type: ignore[no-untyped-call]
 
         # Tags for indexing
-        point.tag("source", row["source"])
-        point.tag("station_id", row["source_station_id"])
+        point.tag("source", row["source"])  # type: ignore[no-untyped-call]
+        point.tag("station_id", row["source_station_id"])  # type: ignore[no-untyped-call]
 
         # Timestamp
         observed_at = datetime.fromisoformat(row["observed_at"])
-        point.time(observed_at, WritePrecision.S)
+        point.time(observed_at, WritePrecision.S)  # type: ignore[no-untyped-call]
 
         # Numeric fields - convert non-empty strings to floats
         numeric_fields = [
@@ -104,7 +104,7 @@ class InfluxDBSync:
             value = row.get(field, "")
             if value and value.strip() and value.lower() not in ("", "none", "null"):
                 try:
-                    point.field(field, float(value))
+                    point.field(field, float(value))  # type: ignore[no-untyped-call]
                 except ValueError:
                     pass
 
@@ -114,13 +114,13 @@ class InfluxDBSync:
             "none",
             "null",
         ):
-            point.field("pressure_tendency", row["pressure_tendency"])
+            point.field("pressure_tendency", row["pressure_tendency"])  # type: ignore[no-untyped-call]
         if row.get("weather_code") and row["weather_code"].lower() not in (
             "",
             "none",
             "null",
         ):
-            point.field("weather_code", row["weather_code"])
+            point.field("weather_code", row["weather_code"])  # type: ignore[no-untyped-call]
 
         return point
 
@@ -248,5 +248,5 @@ class InfluxDBSync:
     def close(self) -> None:
         """Close InfluxDB client."""
         if self._client:
-            self._client.close()
+            self._client.close()  # type: ignore[no-untyped-call]
             self._client = None

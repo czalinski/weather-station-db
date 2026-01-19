@@ -9,7 +9,7 @@ from types import FrameType
 from typing import Any, NoReturn
 
 from .config import Settings, get_settings
-from .producers import ISDProducer, NDBCProducer, OSCARProducer
+from .producers import ISDProducer, NDBCProducer, NWSProducer, OpenMeteoProducer, OSCARProducer
 from .producers.base import BaseProducer
 
 logger = logging.getLogger(__name__)
@@ -76,6 +76,10 @@ async def run_producer(
                         interval = producer.isd_config.fetch_interval_seconds
                     elif hasattr(producer, "oscar_config"):
                         interval = producer.oscar_config.fetch_interval_seconds
+                    elif hasattr(producer, "nws_config"):
+                        interval = producer.nws_config.fetch_interval_seconds
+                    elif hasattr(producer, "openmeteo_config"):
+                        interval = producer.openmeteo_config.fetch_interval_seconds
                     else:
                         interval = 3600
 
@@ -125,6 +129,10 @@ async def run_all_producers(
             producers.append("isd")
         if settings.oscar.enabled:
             producers.append("oscar")
+        if settings.nws.enabled:
+            producers.append("nws")
+        if settings.openmeteo.enabled:
+            producers.append("openmeteo")
 
     if not producers:
         logger.warning("No producers enabled. Set *_ENABLED=true or specify --producers")
@@ -171,6 +179,34 @@ async def run_all_producers(
             asyncio.create_task(
                 run_producer(oscar_producer, _shutdown_event, run_once),
                 name="oscar",
+            )
+        )
+
+    if "nws" in producers:
+        nws_producer = NWSProducer(
+            csv_config=settings.csv,
+            kafka_config=settings.kafka,
+            nws_config=settings.nws,
+        )
+        tasks.append(
+            asyncio.create_task(
+                run_producer(nws_producer, _shutdown_event, run_once),
+                name="nws",
+            )
+        )
+
+    if "openmeteo" in producers:
+        openmeteo_producer = OpenMeteoProducer(
+            csv_config=settings.csv,
+            kafka_config=settings.kafka,
+            openmeteo_config=settings.openmeteo,
+            oscar_config=settings.oscar,
+            isd_config=settings.isd,
+        )
+        tasks.append(
+            asyncio.create_task(
+                run_producer(openmeteo_producer, _shutdown_event, run_once),
+                name="openmeteo",
             )
         )
 
@@ -228,13 +264,19 @@ Producer Configuration:
   ISD_COUNTRY_CODES       Comma-separated country codes
   OSCAR_ENABLED           Enable OSCAR producer (default: true)
   OSCAR_TERRITORIES       Comma-separated territory names
+  NWS_ENABLED             Enable NWS producer (default: false)
+  NWS_STATION_IDS         Comma-separated station IDs (e.g., KJFK,KLGA)
+  NWS_STATES              Comma-separated US states (e.g., NY,NJ,CT)
+  OPENMETEO_ENABLED       Enable Open-Meteo producer (default: false)
+  OPENMETEO_STATION_SOURCE  Location source: configured, oscar, or isd
+  OPENMETEO_CONFIGURED_LOCATIONS  Manual locations (name:lat:lon,...)
         """,
     )
 
     parser.add_argument(
         "--producers",
         nargs="+",
-        choices=["ndbc", "isd", "oscar"],
+        choices=["ndbc", "isd", "oscar", "nws", "openmeteo"],
         help="Specific producers to run (default: all enabled)",
     )
 

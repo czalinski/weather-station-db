@@ -1,6 +1,10 @@
-"""Unit tests for ISD client."""
+"""Unit tests for ISD client.
 
-from datetime import datetime, timedelta, timezone
+Note: ISD is now metadata-only. Observation functionality was removed.
+Use NWS or Open-Meteo clients for real-time observations.
+"""
+
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -34,24 +38,6 @@ def isd_client(isd_config: ISDConfig) -> ISDClient:
 def station_history_content() -> str:
     """Load station history fixture."""
     return (FIXTURES_DIR / "isd-history-sample.csv").read_text()
-
-
-@pytest.fixture
-def observation_content() -> str:
-    """Load observation fixture."""
-    return (FIXTURES_DIR / "72053400164-sample.csv").read_text()
-
-
-@pytest.fixture
-def observation_missing_content() -> str:
-    """Load observation with missing values."""
-    return (FIXTURES_DIR / "72053400164-missing.csv").read_text()
-
-
-@pytest.fixture
-def observation_bad_quality_content() -> str:
-    """Load observation with bad quality flags."""
-    return (FIXTURES_DIR / "72053400164-bad-quality.csv").read_text()
 
 
 @pytest.fixture
@@ -181,125 +167,6 @@ class TestFilterStations:
         assert len(filtered) == 4
 
 
-class TestParseObservation:
-    def test_parse_valid_observation(self, isd_client: ISDClient, observation_content: str):
-        """Test parsing valid observation data."""
-        since = datetime(2024, 1, 15, 9, 0, tzinfo=timezone.utc)
-        observations = isd_client._parse_observations("720534-00164", observation_content, since)
-
-        assert len(observations) == 3
-
-        # Check first (most recent) observation
-        obs = observations[0]
-        assert obs.source == DataSource.ISD
-        assert obs.source_station_id == "720534-00164"
-        assert obs.wind_direction_deg == 270
-        assert obs.wind_speed_mps == pytest.approx(5.1)
-        assert obs.visibility_m == pytest.approx(16000)
-        assert obs.air_temp_c == pytest.approx(15.2)
-        assert obs.dewpoint_c == pytest.approx(8.9)
-        assert obs.pressure_hpa == pytest.approx(1018.5)
-        assert obs.precipitation_1h_mm == pytest.approx(2.5)
-        assert obs.weather_code == "RA"
-
-    def test_parse_filters_by_since(self, isd_client: ISDClient, observation_content: str):
-        """Test that observations before 'since' are filtered."""
-        since = datetime(2024, 1, 15, 11, 30, tzinfo=timezone.utc)
-        observations = isd_client._parse_observations("720534-00164", observation_content, since)
-
-        # Only the 12:00 observation should be included
-        assert len(observations) == 1
-        assert observations[0].observed_at.hour == 12
-
-    def test_parse_missing_values(self, isd_client: ISDClient, observation_missing_content: str):
-        """Test parsing observation with missing values."""
-        since = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        observations = isd_client._parse_observations(
-            "720534-00164", observation_missing_content, since
-        )
-
-        assert len(observations) == 1
-        obs = observations[0]
-
-        assert obs.wind_direction_deg is None
-        assert obs.wind_speed_mps is None
-        assert obs.visibility_m is None
-        assert obs.air_temp_c is None
-        assert obs.dewpoint_c is None
-        assert obs.pressure_hpa is None
-
-    def test_parse_bad_quality_flags(
-        self, isd_client: ISDClient, observation_bad_quality_content: str
-    ):
-        """Test that bad quality flags result in null values."""
-        since = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        observations = isd_client._parse_observations(
-            "720534-00164", observation_bad_quality_content, since
-        )
-
-        assert len(observations) == 1
-        obs = observations[0]
-
-        # Quality flag 3 should be rejected
-        assert obs.wind_direction_deg is None
-        assert obs.wind_speed_mps is None
-        assert obs.air_temp_c is None
-        assert obs.dewpoint_c is None
-        assert obs.pressure_hpa is None
-
-
-class TestParseFields:
-    def test_parse_temperature(self, isd_client: ISDClient):
-        """Test temperature parsing."""
-        assert isd_client._parse_temperature("+0152,1") == pytest.approx(15.2)
-        assert isd_client._parse_temperature("-0050,1") == pytest.approx(-5.0)
-        assert isd_client._parse_temperature("+9999,1") is None
-        assert isd_client._parse_temperature("+0152,3") is None  # Bad quality
-        assert isd_client._parse_temperature("") is None
-
-    def test_parse_pressure(self, isd_client: ISDClient):
-        """Test pressure parsing."""
-        assert isd_client._parse_pressure("10185,1") == pytest.approx(1018.5)
-        assert isd_client._parse_pressure("99999,1") is None
-        assert isd_client._parse_pressure("10185,3") is None  # Bad quality
-        assert isd_client._parse_pressure("") is None
-
-    def test_parse_wind(self, isd_client: ISDClient):
-        """Test wind parsing."""
-        direction, speed = isd_client._parse_wind("270,1,N,0051,1")
-        assert direction == 270
-        assert speed == pytest.approx(5.1)
-
-        # Missing direction
-        direction, speed = isd_client._parse_wind("999,1,N,0051,1")
-        assert direction is None
-        assert speed == pytest.approx(5.1)
-
-        # Missing speed
-        direction, speed = isd_client._parse_wind("270,1,N,9999,1")
-        assert direction == 270
-        assert speed is None
-
-        # Bad quality
-        direction, speed = isd_client._parse_wind("270,3,N,0051,3")
-        assert direction is None
-        assert speed is None
-
-    def test_parse_visibility(self, isd_client: ISDClient):
-        """Test visibility parsing."""
-        assert isd_client._parse_visibility("016000,1,9") == pytest.approx(16000)
-        assert isd_client._parse_visibility("999999,1,9") is None
-        assert isd_client._parse_visibility("016000,3,9") is None  # Bad quality
-        assert isd_client._parse_visibility("") is None
-
-    def test_parse_precipitation(self, isd_client: ISDClient):
-        """Test precipitation parsing."""
-        assert isd_client._parse_precipitation("01,0025,9,1") == pytest.approx(2.5)
-        assert isd_client._parse_precipitation("01,9999,9,1") is None
-        assert isd_client._parse_precipitation("01,0025,9,3") is None  # Bad quality
-        assert isd_client._parse_precipitation("") is None
-
-
 class TestStationMetadata:
     @pytest.mark.asyncio
     async def test_get_station_metadata(self, isd_client: ISDClient, sample_station: ISDStation):
@@ -377,39 +244,6 @@ class TestHTTPRequests:
 
         stations = await isd_client.get_station_list(use_cache=False)
         assert stations == []
-
-    @respx.mock
-    @pytest.mark.asyncio
-    async def test_get_observations(
-        self,
-        isd_client: ISDClient,
-        sample_station: ISDStation,
-        observation_content: str,
-    ):
-        """Test fetching observations via HTTP."""
-        year = datetime.now(timezone.utc).year
-        respx.get(
-            f"https://www.ncei.noaa.gov/data/global-hourly/access/{year}/72053400164.csv"
-        ).mock(return_value=httpx.Response(200, text=observation_content))
-
-        since = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        observations = await isd_client.get_observations(sample_station, since)
-
-        assert len(observations) == 3
-
-    @respx.mock
-    @pytest.mark.asyncio
-    async def test_get_observations_404(self, isd_client: ISDClient, sample_station: ISDStation):
-        """Test handling 404 when fetching observations."""
-        year = datetime.now(timezone.utc).year
-        respx.get(
-            f"https://www.ncei.noaa.gov/data/global-hourly/access/{year}/72053400164.csv"
-        ).mock(return_value=httpx.Response(404))
-
-        since = datetime.now(timezone.utc) - timedelta(hours=24)
-        observations = await isd_client.get_observations(sample_station, since)
-
-        assert observations == []
 
     @respx.mock
     @pytest.mark.asyncio

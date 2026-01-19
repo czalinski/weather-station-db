@@ -9,3 +9,5 @@ class DataSource(str, Enum):
     NDBC = "ndbc"
     ISD = "isd"
     OSCAR = "oscar"
+    OPENMETEO = "openmeteo"
+    NWS = "nws"
