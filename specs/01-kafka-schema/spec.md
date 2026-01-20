@@ -34,6 +34,18 @@ class DataSource(str, Enum):
     NDBC = "ndbc"
     ISD = "isd"
     OSCAR = "oscar"
+    OPENMETEO = "openmeteo"
+    NWS = "nws"
+```
+
+#### AnomalyFlag
+Bit flags for marking anomalies in observation data. Values can be combined with bitwise OR.
+
+```python
+class AnomalyFlag(IntFlag):
+    NONE = 0
+    FIRST_AFTER_GAP = 1      # First sample after missing samples
+    METADATA_CHANGED = 2     # First sample after station metadata changed
 ```
 
 ### StationMetadata
@@ -99,6 +111,9 @@ class Observation(BaseModel):
     wave_period_s: float | None
     water_temp_c: float | None
 
+    # Anomaly tracking
+    anomaly_flags: int = 0          # Bit field, see AnomalyFlag enum
+
     # Metadata
     ingested_at: datetime           # When producer received this data
 ```
@@ -110,6 +125,7 @@ class Observation(BaseModel):
 - `wind_direction_deg`: 0 to 360
 - `wind_speed_mps`: >= 0
 - `wave_height_m`: >= 0
+- `anomaly_flags`: >= 0 (bit field, default 0)
 - `observed_at`, `ingested_at`: UTC timezone required
 
 ## Serialization
@@ -162,6 +178,7 @@ class Observation(BaseModel):
   "wave_height_m": 1.8,
   "wave_period_s": 12.5,
   "water_temp_c": 14.8,
+  "anomaly_flags": 0,
   "ingested_at": "2024-01-15T12:01:23Z"
 }
 ```

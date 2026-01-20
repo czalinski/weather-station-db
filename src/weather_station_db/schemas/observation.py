@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from .enums import DataSource
+from .enums import AnomalyFlag, DataSource
 
 PressureTendency = Literal["rising", "falling", "steady"]
 
@@ -47,6 +47,9 @@ class Observation(BaseModel):
     wave_height_m: Annotated[float | None, Field(ge=0.0)] = None
     wave_period_s: Annotated[float | None, Field(ge=0.0)] = None
     water_temp_c: Annotated[float | None, Field(ge=-10.0, le=50.0)] = None
+
+    # Anomaly tracking
+    anomaly_flags: int = 0  # Bit field, see AnomalyFlag enum
 
     # Metadata
     ingested_at: datetime

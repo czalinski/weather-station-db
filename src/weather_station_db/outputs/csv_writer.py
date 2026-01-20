@@ -40,6 +40,7 @@ class CSVWriter:
         "wave_height_m",
         "wave_period_s",
         "water_temp_c",
+        "anomaly_flags",
     ]
 
     # Column order for metadata CSV
