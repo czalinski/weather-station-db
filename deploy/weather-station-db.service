@@ -1,0 +1,29 @@
+[Unit]
+Description=Weather Station DB - Data Ingestion Service
+Documentation=https://github.com/your-org/weather-station-db
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+TimeoutStartSec=300
+TimeoutStopSec=30
+
+# Working directory with compose file and env
+WorkingDirectory=/opt/weather-station-db
+
+# Load environment variables
+EnvironmentFile=-/opt/weather-station-db/.env
+
+# Pull latest image and start
+ExecStartPre=/usr/bin/docker compose -f docker-compose.prod.yml pull
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up --remove-orphans
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+
+# Cleanup on failure
+ExecStopPost=/usr/bin/docker compose -f docker-compose.prod.yml down
+
+[Install]
+WantedBy=multi-user.target
