@@ -4,7 +4,7 @@ services:
     container_name: weather-station-db
     restart: unless-stopped
     volumes:
-      - weather-data:/app/data
+      - ${DATA_DIR:-./data}:/app/data
     environment:
       # Data output directory (inside container)
       - DATA_DIR=/app/data
@@ -28,7 +28,3 @@ services:
           memory: 512M
         reservations:
           memory: 128M
-
-volumes:
-  weather-data:
-    driver: local
