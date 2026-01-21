@@ -18,8 +18,9 @@ services:
       # Alerting (optional)
       - NTFY_URL=${NTFY_URL:-}
       - NTFY_TOPIC=${NTFY_TOPIC:-}
-    # Override default producers if needed
-    command: ["--producers", "${PRODUCERS:-ndbc,openmeteo}"]
+    # Override default producers if needed (space-separated: "ndbc openmeteo")
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["weather-station-db --producers ${PRODUCERS:-ndbc openmeteo}"]
     # Resource limits suitable for Orange Pi 5
     deploy:
       resources:
